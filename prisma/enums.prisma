@@ -1,0 +1,218 @@
+enum AccountOrigin {
+  SELF_REGISTERED // Khud register kiya (Buyer, Seller, Org Owner)
+  INVITED // Kisi ne invite kiya (Org Employee, Platform Staff)
+}
+
+// User ka account active hai ya nahi
+enum UserStatus {
+  PENDING
+  ACTIVE // Account chalu hai
+  SUSPENDED // Temporarily band hai (Admin ne kiya)
+  DEACTIVATED // User ne khud band kiya
+}
+
+// Seller ka type - Individual ya Organization
+enum SellerType {
+  INDIVIDUAL // Akela kaam karta hai
+  ORGANIZATION // Company/Team ke saath kaam karta hai
+}
+
+// Seller ka verification status
+enum VerificationStatus {
+  PENDING // Abhi verify nahi hua
+  VERIFIED // Verify ho gaya
+  REJECTED // Reject ho gaya
+}
+
+// Organization ka status
+enum OrganizationStatus {
+  ACTIVE // Chalu hai
+  SUSPENDED // Platform ne band kiya
+  DEACTIVATED // Owner ne band kiya
+}
+
+// Permission kis context ke liye hai - Organization ya Platform
+enum PermissionScope {
+  ORGANIZATION // Organization ke andar ki permissions
+  PLATFORM // Platform level ki permissions
+}
+
+// Role kis context ke liye hai - Organization ya Platform
+// (Same enum use karenge consistency ke liye)
+enum RoleScope {
+  ORGANIZATION // Organization ke andar ka role
+  PLATFORM // Platform level ka role
+}
+
+// Member kis context me hai - Organization ya Platform
+enum MemberScope {
+  ORGANIZATION // Organization ka member
+  PLATFORM // Platform ka staff
+}
+
+// Member ka status
+enum MemberStatus {
+  PENDING // Invitation accept hone tak wait
+  ACTIVE // Kaam kar raha hai
+  SUSPENDED // Temporarily hataya gaya
+  REMOVED // Permanently hataya gaya
+}
+
+// Invitation kis type ki hai
+enum InvitationType {
+  ORGANIZATION_MEMBER // Organization me invite
+  PLATFORM_STAFF // Platform staff me invite
+}
+
+// Invitation ka status
+enum InvitationStatus {
+  PENDING // Abhi accept nahi kiya
+  ACCEPTED // Accept kar liya
+  DECLINED // Invitee ne reject kiya
+  EXPIRED // Time khatam ho gaya
+  CANCELLED // Invite wapas le liya
+}
+
+// OTP kis purpose ke liye generate hua
+enum OtpPurpose {
+  EMAIL_VERIFICATION // Email verify karne ke liye
+  PHONE_VERIFICATION // Phone verify karne ke liye
+  PASSWORD_RESET // Password bhool gaya
+  LOGIN_2FA // 2 Factor Authentication
+  LOGIN_PASSWORDLESS // Bina password ke login (OTP based)
+  ACCOUNT_DELETION // Account delete karne se pehle verification
+}
+
+// OTP ka status
+enum OtpStatus {
+  ACTIVE // Abhi valid hai, use nahi hua
+  USED // Use ho chuka hai
+  EXPIRED // Time khatam ho gaya
+}
+
+// Refresh token ka status
+enum TokenStatus {
+  ACTIVE // Token valid hai
+  REVOKED // Manually revoke kiya (logout)
+  EXPIRED // Time khatam ho gaya
+  ROTATED // Naya token issue hua, purana replace ho gaya
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+// ============================================================
+// PROPERTY ENUMS
+// ============================================================
+
+// Property ka type - Market me common types
+enum PropertyType {
+  APARTMENT // Apartment/Flat
+  HOUSE // Individual House/Bungalow
+  VILLA // Villa
+  PLOT // Plot/Land
+  COMMERCIAL_SHOP // Dukaan/Shop
+  COMMERCIAL_OFFICE // Office Space
+  COMMERCIAL_BUILDING // Commercial Building
+  FARM_HOUSE // Farmhouse
+  PENTHOUSE // Penthouse
+  STUDIO // Studio Apartment
+}
+
+// Transaction type - Sale ya Rent
+enum TransactionType {
+  SALE // Sale/Buy
+  RENT // Rent/Lease
+}
+
+// Property ki current status
+enum PropertyStatus {
+  AVAILABLE // Available for sale/rent
+  UNDER_OFFER // Offer aaya hai
+  SOLD // Sold ho gayi
+  RENTED // Rent pe di gayi
+  LEASED // Lease pe di gayi
+  WITHDRAWN // Market se hata li
+  DRAFT // Draft me hai, publish nahi hui
+}
+
+// Furnishing status
+enum FurnishingStatus {
+  FURNISHED // Fully furnished
+  SEMI_FURNISHED // Semi furnished
+  UNFURNISHED // Not furnished
+}
+
+// Ownership type
+enum OwnershipType {
+  FREEHOLD // Complete ownership
+  LEASEHOLD // Lease based ownership
+  CO_OPERATIVE // Cooperative society
+}
+
+// Kiske through listed hai
+enum ListedBy {
+  OWNER // Khud owner ne list kiya
+  AGENT // Agent ne list kiya
+  BUILDER // Builder ne list kiya
+}
+
+// Property ki construction/availability status
+enum AvailabilityStatus {
+  READY_TO_MOVE // Ready to move in
+  UNDER_CONSTRUCTION // Under construction
+  NEW_LAUNCH // Newly launched project
+}
+
+// ============================================================
+// SELLER ENUMS
+// ============================================================
+
+// Seller ke KYC document types
+enum SellerDocumentType {
+  PAN_CARD // PAN Card
+  AADHAAR_CARD // Aadhaar Card
+  GST_CERTIFICATE // GST Certificate
+  COMPANY_REGISTRATION // Company registration certificate
+  RERA_CERTIFICATE // RERA certificate
+  OFFICE_ADDRESS_PROOF // Office address proof
+  OTHER // Koi aur document
+}
+
+// Seller rating ka moderation status
+enum RatingStatus {
+  PENDING // Moderation me hai, abhi public nahi
+  PUBLISHED // Public me dikh raha hai
+  HIDDEN // Moderation ne hata diya
+}
+
+// Buyer/seller profile form enquiry ka status
+enum EnquiryStatus {
+  NEW // Naya enquiry aaya
+  CONTACTED // Seller ne contact kiya
+  CLOSED // Resolve ho gaya
+}
+
+// Seller blog post ka status
+enum BlogStatus {
+  DRAFT // Draft me hai, publish nahi hua
+  PUBLISHED // Live/profile pe dikh raha hai
+  ARCHIVED // Hata diya / purana
+}
+
+// Blog post pe user ka interaction (sab ek hi table me)
+enum SellerBlogInteractionType {
+  LIKE
+  DISLIKE
+  COMMENT
+}
+
+// Blog comment ka moderation status
+enum BlogCommentStatus {
+  PENDING // Moderation me
+  PUBLISHED // Public
+  HIDDEN // Hata diya
+}

@@ -1,0 +1,61 @@
+// ============================================================
+// TABLE: SELLER BLOG POSTS
+// ============================================================
+// Seller apne profile ke liye blog posts likh sakta hai.
+// Buyers ko seller ke baare me posts profile pe dikhenge.
+//
+// Relations:
+//   SellerBlogPost Many ←→ 1 SellerProfile
+// ============================================================
+
+model SellerBlogPost {
+  id String @id @default(uuid()) @db.Uuid
+
+  // --- Seller Link ---
+  sellerId String        @map("seller_id") @db.Uuid
+  seller   SellerProfile @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+
+  // --- Author Link ---
+  // Post kis user ne likhi (profile + name show honge)
+  // ORG seller me diff members post kar sakte hain - har post ka author alag
+  authorId String @map("author_id") @db.Uuid
+  author   User   @relation("BlogAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+
+  // --- Content ---
+  title      String
+  slug       String  @unique // URL: /seller/abc/blog/my-post
+  content    String  @db.Text
+  excerpt    String? // chhota summary
+  coverImage String? @map("cover_image")
+
+  // --- Media & Tags ---
+  images Json? @default("[]") @db.JsonB
+  tags   Json? @default("[]") @db.JsonB // ["home-loan", "tips"]
+
+  // --- SEO ---
+  metaTitle       String? @map("meta_title")
+  metaDescription String? @map("meta_description")
+  metaKeywords    String? @map("meta_keywords")
+
+  // --- Status ---
+  status      BlogStatus @default(DRAFT)
+  publishedAt DateTime?  @map("published_at")
+
+  // --- Engagement ---
+  viewsCount Int @default(0) @map("views_count")
+
+  // --- Timestamps ---
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at") // soft delete
+
+  // Post pe user interactions (LIKE/DISLIKE/COMMENT)
+  // SellerBlogPost 1 ←→ Many Interactions
+  interactions SellerBlogInteraction[]
+
+  @@index([sellerId, status])
+  @@index([authorId])
+  @@index([slug])
+  @@index([publishedAt])
+  @@map("seller_blog_posts")
+}

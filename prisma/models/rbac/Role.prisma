@@ -1,0 +1,85 @@
+// ============================================================
+// TABLE 7: ROLES (Dynamic - Users Create Karenge)
+// ============================================================
+// Ye DYNAMIC hai - Owner/Super Admin new roles create kar sakte hain.
+// Role ek TEMPLATE hai permissions ka.
+// Jab kisi member ko role assign karo, usko role ki saari
+// permissions automatically mil jaati hain.
+//
+// Two types based on scope:
+//   ORGANIZATION roles → Har org ke apne alag roles honge
+//     context_id = organization_id
+//   PLATFORM roles → Platform ke global roles
+//     context_id = NULL
+//
+// is_system_role = true → Delete/Edit nahi ho sakta (Owner, Super Admin)
+// is_default = true → Agar invite me role select na ho to ye lagega
+//
+// Relations:
+//   Role Many ←→ 1 Organization (optional, via context_id)
+//   Role 1 ←→ Many RolePermissions
+//   Role 1 ←→ Many Members
+//   Role Many ←→ 1 User (created_by)
+// ============================================================
+
+model Role {
+  id String @id @default(uuid()) @db.Uuid
+
+  // --- Scope ---
+  scope RoleScope
+
+  // --- Context ---
+  // ORGANIZATION scope → context_id = organization_id
+  // PLATFORM scope → context_id = NULL
+  //
+  // Kyun context_id use kiya organization_id nahi?
+  // Kyunki ek hi table me ORGANIZATION aur PLATFORM dono roles hain.
+  // Platform roles ka koi organization nahi hota, isliye NULL.
+  contextId    String?       @map("context_id") @db.Uuid
+  organization Organization? @relation(fields: [contextId], references: [id], onDelete: Cascade)
+
+  // --- Role Info ---
+  roleName    String  @map("role_name") // "Owner", "Admin", "Agent", "Super Admin"
+  description String?
+
+  // --- Flags ---
+  // is_system_role: Owner aur Super Admin roles delete/edit nahi ho sakte
+  isSystemRole Boolean @default(false) @map("is_system_role")
+  // is_default: Agar invite me role select na ho to ye default lagega
+  isDefault    Boolean @default(false) @map("is_default")
+
+  // --- Who Created ---
+  createdBy     String @map("created_by") @db.Uuid
+  createdByUser User   @relation(fields: [createdBy], references: [id])
+
+  // --- Timestamps ---
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // ===========================================================
+  // RELATIONS
+  // ===========================================================
+
+  // Is role me kaunsi permissions hain
+  // Role 1 ←→ Many RolePermissions
+  rolePermissions RolePermission[]
+
+  // Is role ke kitne members hain
+  // Role 1 ←→ Many Members
+  members Member[]
+
+  // Is role ke liye kitne invitations bheje gaye
+  // Role 1 ←→ Many Invitations
+  invitations Invitation[]
+
+  // ===========================================================
+  // INDEXES
+  // ===========================================================
+
+  // Ek scope + context me same naam ka role nahi ho sakta
+  // Example: org_1 me do "Admin" roles nahi ban sakte
+  @@unique([scope, contextId, roleName])
+  @@index([contextId])
+  @@index([createdBy])
+  @@map("roles")
+}

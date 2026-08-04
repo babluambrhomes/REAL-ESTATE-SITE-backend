@@ -1,0 +1,43 @@
+// ============================================================
+// TABLE 8: ROLE PERMISSIONS (Mapping - Role me Permissions Dalna)
+// ============================================================
+// Ye JUNCTION/MAPPING table hai.
+// Role aur Permission ke beech MANY-TO-MANY relation hai.
+//
+// Jab Owner role create kare aur permissions select kare,
+// tab is table me rows INSERT hongi.
+//
+// Jab Owner role se koi permission hataye,
+// tab is table se row DELETE hogi.
+//
+// IMPORTANT: Member ko directly permission nahi milti.
+// Member → Role → RolePermissions → Permission
+// Isliye role ki permissions change karo to sab members
+// AUTOMATICALLY affected hote hain!
+//
+// Relations:
+//   RolePermission Many ←→ 1 Role
+//   RolePermission Many ←→ 1 Permission
+// ============================================================
+
+model RolePermission {
+  id String @id @default(uuid()) @db.Uuid
+
+  // --- Role Link ---
+  roleId String @map("role_id") @db.Uuid
+  role   Role   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  // onDelete: Cascade → Role delete hoga to uski saari permissions bhi hategi
+
+  // --- Permission Link ---
+  permissionId String     @map("permission_id") @db.Uuid
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  // --- Timestamps ---
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Ek role me same permission do baar nahi ho sakti
+  @@unique([roleId, permissionId])
+  @@index([roleId])
+  @@index([permissionId])
+  @@map("role_permissions")
+}

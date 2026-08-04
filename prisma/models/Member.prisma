@@ -1,0 +1,66 @@
+// ============================================================
+// TABLE 9: MEMBERS (User ko Role Assign Karna)
+// ============================================================
+// Ye table batata hai ki KAUN KAHAN KAAM karta hai KIS ROLE ke saath.
+//
+// Ek hi table me do type ke members hain:
+//   ORGANIZATION scope → Organization ka member
+//     context_id = organization_id
+//   PLATFORM scope → Platform ka staff
+//     context_id = NULL
+//
+// Kyun alag tables nahi banaye?
+//   - Query simple rehti hai
+//   - Ek user ke sab memberships ek jagah milte hain
+//   - Code duplication nahi hota
+//
+// PERMISSION CHECK FLOW:
+//   Member → Role → RolePermissions → Permission
+//   Ye chain follow hogi permission check karte waqt
+//
+// Relations:
+//   Member Many ←→ 1 User
+//   Member Many ←→ 1 Role
+//   Member Many ←→ 1 Organization (optional)
+// ============================================================
+
+model Member {
+  id String @id @default(uuid()) @db.Uuid
+
+  // --- Scope ---
+  scope MemberScope
+
+  // --- Context ---
+  // ORGANIZATION → context_id = organization_id
+  // PLATFORM → context_id = NULL
+  contextId    String?       @map("context_id") @db.Uuid
+  organization Organization? @relation(fields: [contextId], references: [id], onDelete: Cascade)
+
+  // --- User Link ---
+  // Kaun hai ye member
+  userId String @map("user_id") @db.Uuid
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // --- Role Link ---
+  // Kya role hai iska
+  roleId String @map("role_id") @db.Uuid
+  role   Role   @relation(fields: [roleId], references: [id])
+
+  // --- Status ---
+  status MemberStatus @default(ACTIVE)
+
+  // --- When Joined ---
+  joinedAt DateTime @default(now()) @map("joined_at")
+
+  // --- Timestamps ---
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Ek user ek context me ek hi baar member ho sakta hai
+  // Example: user_5 org_1 me sirf ek baar ho sakta hai
+  @@unique([scope, contextId, userId])
+  @@index([userId])
+  @@index([roleId])
+  @@index([contextId])
+  @@map("members")
+}

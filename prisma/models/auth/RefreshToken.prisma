@@ -1,0 +1,90 @@
+// ============================================================
+// TABLE 11: REFRESH TOKENS
+// ============================================================
+// Jab user login karta hai:
+//   → Access Token milta hai (short-lived, 15-30 min, JWT, DB me NAHI store)
+//   → Refresh Token milta hai (long-lived, 7-30 days, DB me store)
+//
+// Jab Access Token expire ho:
+//   → Frontend Refresh Token bhejta hai
+//   → Backend verify karta hai (DB me check)
+//   → Naya Access Token + Naya Refresh Token deta hai
+//   → Purana Refresh Token ROTATED mark hota hai
+//
+// Kyun DB me store karna zaroori hai?
+//   → Logout pe revoke kar sakein
+//   → "Logout from all devices" kar sakein
+//   → Suspicious activity pe sab tokens band kar sakein
+//   → Device tracking kar sakein
+//   → Token rotation implement kar sakein
+//
+// Ek user ke MULTIPLE refresh tokens ho sakte hain
+// kyunki wo multiple devices se login kar sakta hai
+//
+// Relations:
+//   RefreshToken Many ←→ 1 User
+//   "Ek user ke multiple tokens ho sakte hain (multiple devices)"
+// ============================================================
+
+model RefreshToken {
+  id String @id @default(uuid()) @db.Uuid
+
+  userId String @map("user_id") @db.Uuid
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // --- Token Value ---
+  // Ye actual token string hai jo frontend ko milta hai
+  // Hashed store karo (bcrypt/sha256) taki DB leak hone pe bhi safe rahe
+  token String @unique
+
+  // --- Token Status ---
+  // ACTIVE → valid hai
+  // REVOKED → logout kiya
+  // EXPIRED → time khatam
+  // ROTATED → naye token se replace ho gaya
+  status TokenStatus @default(ACTIVE)
+
+  // --- Token Family ---
+  // Token rotation ke liye important hai
+  // Ek "family" me sab tokens ek login session ke hain
+  // Agar koi ROTATED token dubara use kare (token theft)
+  // → Puri family revoke karo (sab tokens of this family)
+  //
+  // Example:
+  //   Login → Token A (family: "xyz") ACTIVE
+  //   Refresh → Token A ROTATED, Token B (family: "xyz") ACTIVE
+  //   Refresh → Token B ROTATED, Token C (family: "xyz") ACTIVE
+  //   
+  //   Agar koi Token A dubara use kare:
+  //   → ALERT! Token theft detected!
+  //   → Token C bhi revoke karo (puri family "xyz" band)
+  family String
+
+  // --- Device Info ---
+  // Kis device se login kiya — "Active Sessions" feature ke liye
+  // User dashboard me dikhega: "Ye devices logged in hain"
+  deviceInfo String? @map("device_info") // "Chrome on Windows 11"
+  ipAddress  String? @map("ip_address") // "192.168.1.1"
+  userAgent  String? @map("user_agent") // Full user agent string
+
+  // --- Replaced By ---
+  // Agar ye token ROTATED hua to naye token ka reference
+  // Chain track karne ke liye
+  replacedByToken String? @map("replaced_by_token")
+
+  // --- Expiry ---
+  // Token kab expire hoga (usually 7-30 days)
+  expiresAt DateTime @map("expires_at")
+
+  // --- Timestamps ---
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // --- Indexes ---
+  // Fast lookup ke liye
+  @@index([userId, status]) // "Is user ke active tokens do"
+  @@index([family]) // "Is family ke sab tokens do"
+  @@index([token]) // Token se direct lookup
+  @@index([expiresAt]) // Cleanup job ke liye - expired tokens delete
+  @@map("refresh_tokens")
+}

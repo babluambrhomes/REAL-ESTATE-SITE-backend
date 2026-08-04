@@ -1,0 +1,74 @@
+// ============================================================
+// TABLE: SELLER VERIFICATION DOCUMENTS (KYC)
+// ============================================================
+// Seller ke verification/KYC documents.
+// Har document ka apna status aur rejection reason hota hai.
+//
+// Ek hi CENTRAL table do contexts handle karta hai (copy problem se bachne ke liye):
+//   INDIVIDUAL seller → seller_id set (SellerProfile level verification)
+//     PAN, Aadhaar, RERA
+//   ORGANIZATION seller → organization_id set (Organization level verification)
+//     GST, Company Registration, Office Address, Company PAN, RERA
+//
+// IMPORTANT: Exactly ONE of sellerId / organizationId set hota hai
+//   → App layer me validate karo
+//   → DB level CHECK constraint (optional, hand migration)
+//
+// @@unique([sellerId, docType])          → 1 individual seller = 1 doc type
+// @@unique([organizationId, docType])    → 1 org = 1 doc type
+//     (company docs ek hi jagah centralized - har profile pe copy nahi)
+//
+// Verification flow:
+//   1. Seller document upload kare (apne context me)
+//   2. Platform staff verify kare
+//   3. VERIFIED → seller profile / organization verified hota hai
+//      REJECTED → seller reason dekhe, dobara upload kare
+//
+// Relations:
+//   SellerVerificationDocument Many ←→ 1 SellerProfile (optional, INDIVIDUAL)
+//   SellerVerificationDocument Many ←→ 1 Organization (optional, ORGANIZATION)
+//   SellerVerificationDocument Many ←→ 1 User (verified_by, optional)
+// ============================================================
+
+model SellerVerificationDocument {
+  id String @id @default(uuid()) @db.Uuid
+
+  // --- Owner Context (Exactly one set) ---
+  // INDIVIDUAL seller ke docs → seller_id
+  sellerId       String?             @map("seller_id") @db.Uuid
+  seller         SellerProfile?      @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+
+  // ORGANIZATION seller ke docs → organization_id
+  organizationId String?             @map("organization_id") @db.Uuid
+  organization   Organization?       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  // --- Document Info ---
+  docType      SellerDocumentType @map("doc_type")
+  title        String?            // "GST Certificate", "PAN Card"
+  fileUrl      String             @map("file_url")
+  originalName String?            @map("original_name")
+  mimeType     String?            @map("mime_type")
+  fileSize     Int?               @map("file_size") // bytes
+
+  // --- Verification ---
+  status          VerificationStatus @default(PENDING)
+  rejectionReason String?            @map("rejection_reason")
+  verifiedBy      String?            @map("verified_by") @db.Uuid
+  verifiedByUser  User?              @relation("VerifiedDocument", fields: [verifiedBy], references: [id])
+  verifiedAt      DateTime?          @map("verified_at")
+
+  // --- Timestamps ---
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Admin panel me pending docs query ke liye
+  @@index([sellerId, status])
+  @@index([organizationId, status])
+  @@index([docType])
+  // Ek seller ek doc type ka sirf 1 record rakhega
+  // Reject hone pe dobara upload = same record UPDATE (duplicate rows nahi)
+  @@unique([sellerId, docType])
+  // Ek org ek doc type ka sirf 1 record rakhega (centralized - copy nahi)
+  @@unique([organizationId, docType])
+  @@map("seller_verification_documents")
+}

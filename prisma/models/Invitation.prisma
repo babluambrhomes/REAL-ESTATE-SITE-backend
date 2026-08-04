@@ -1,0 +1,84 @@
+// ============================================================
+// TABLE 10: INVITATIONS
+// ============================================================
+// Jab Owner ya Super Admin kisi ko invite kare tab ye record banta hai.
+//
+// Do type ke invitations:
+//   ORGANIZATION_MEMBER → Organization me invite
+//   PLATFORM_STAFF → Platform staff me invite
+//
+// INVITATION FLOW:
+//   1. Owner/SuperAdmin invite bheje (INSERT invitation)
+//   2. Email/SMS jaaye invite link ke saath
+//   3. Invitee link click kare
+//   4. Token validate ho (expiry, status check)
+//   5a. Agar invitee already registered hai:
+//       → Sirf Member record create karo
+//   5b. Agar invitee new hai:
+//       → User + Person + Member create karo
+//   6. Invitation status = ACCEPTED
+//
+// Relations:
+//   Invitation Many ←→ 1 User (invited_by)
+//   Invitation Many ←→ 1 User (accepted_by, optional)
+//   Invitation Many ←→ 1 Organization (optional)
+//   Invitation Many ←→ 1 Role
+// ============================================================
+
+model Invitation {
+  id String @id @default(uuid()) @db.Uuid
+
+  // --- Invitation Type ---
+  invitationType InvitationType @map("invitation_type")
+
+  // --- Invitee Contact ---
+  // Kisko invite kiya (email required, phone optional)
+  email String
+  phone String?
+
+  // --- Secure Token ---
+  // Unique random token jo invite link me jayega
+  // Example: "https://app.com/invite/accept?token=abc123xyz"
+  token String @unique
+
+  // --- Who Invited ---
+  invitedBy     String @map("invited_by") @db.Uuid
+  invitedByUser User   @relation("InvitedBy", fields: [invitedBy], references: [id])
+
+  // --- Context ---
+  // ORGANIZATION_MEMBER → organization_id linked
+  // PLATFORM_STAFF → organization_id NULL
+  organizationId String?       @map("organization_id") @db.Uuid
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  // --- Role ---
+  // Invite me hi role decide hota hai
+  // Accept karne pe ye role assign hoga
+  roleId String @map("role_id") @db.Uuid
+  role   Role   @relation(fields: [roleId], references: [id])
+
+  // --- Status ---
+  status InvitationStatus @default(PENDING)
+
+  // --- Accepted By ---
+  // Jab accept ho tab user_id link hoga
+  // NULL tab tak jab tak accept nahi hua
+  acceptedBy     String? @map("accepted_by") @db.Uuid
+  acceptedByUser User?   @relation("AcceptedByUser", fields: [acceptedBy], references: [id])
+
+  // --- Expiry ---
+  // Invitation kab tak valid hai (usually 48-72 hours)
+  expiresAt  DateTime  @map("expires_at")
+  acceptedAt DateTime? @map("accepted_at")
+
+  // --- Timestamps ---
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([token])
+  @@index([status])
+  @@index([email])
+  @@index([invitedBy])
+  @@index([organizationId])
+  @@map("invitations")
+}

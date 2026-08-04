@@ -1,0 +1,61 @@
+// ============================================================
+// TABLE: SELLER BLOG INTERACTIONS (Like / Dislike / Comment)
+// ============================================================
+// Blog post pe user ka interaction - SAB EK HI TABLE ME:
+//   LIKE    → type = LIKE,    content = NULL
+//   DISLIKE → type = DISLIKE, content = NULL
+//   COMMENT → type = COMMENT, content = "text"
+//
+// Ek user ek post pe EK HI reaction (LIKE/DISLIKE) ho sakta hai:
+//   reactionKey = "${blogPostId}|${userId}" (LIKE/DISLIKE rows ke liye)
+//   reactionKey UNIQUE + COMMENT rows me NULL
+//   → comment me NULL distinct hota hai, isliye ek user kayi comments kar sakta hai
+//   → reaction change karna = update (LIKE → DISLIKE)
+//
+// Comments ke liye nested replies (parentId self-relation) + moderation.
+//
+// Relations:
+//   SellerBlogInteraction Many ←→ 1 SellerBlogPost
+//   SellerBlogInteraction Many ←→ 1 User
+//   SellerBlogInteraction Many ←→ 1 SellerBlogInteraction (parent - replies)
+// ============================================================
+
+model SellerBlogInteraction {
+  id String @id @default(uuid()) @db.Uuid
+
+  // --- Blog Post Link ---
+  blogPostId String         @map("blog_post_id") @db.Uuid
+  blogPost   SellerBlogPost @relation(fields: [blogPostId], references: [id], onDelete: Cascade)
+
+  // --- User Link ---
+  userId String @map("user_id") @db.Uuid
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // --- Interaction Type ---
+  // LIKE / DISLIKE / COMMENT
+  type SellerBlogInteractionType
+
+  // --- Comment Content (sirf COMMENT type) ---
+  content String? @db.Text
+
+  // --- Reply Support (sirf COMMENT type) ---
+  parentId String?                 @map("parent_id") @db.Uuid
+  parent   SellerBlogInteraction?  @relation("BlogInteractionReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies  SellerBlogInteraction[] @relation("BlogInteractionReplies")
+
+  // --- Moderation (sirf COMMENT type) ---
+  status BlogCommentStatus? @default(PENDING)
+
+  // --- One Reaction Per User Per Post ---
+  // LIKE/DISLIKE rows: "${blogPostId}|${userId}"
+  // COMMENT rows: NULL (isliye kayi comments ho sakte hain)
+  reactionKey String? @unique @map("reaction_key")
+
+  // --- Timestamps ---
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([blogPostId, type])
+  @@index([parentId])
+  @@map("seller_blog_interactions")
+}

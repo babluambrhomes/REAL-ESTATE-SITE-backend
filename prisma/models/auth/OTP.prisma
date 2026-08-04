@@ -1,0 +1,102 @@
+// ============================================================
+// TABLE 12: OTPs (One Time Passwords)
+// ============================================================
+// OTP multiple purposes ke liye use hota hai:
+//   1. EMAIL_VERIFICATION → Register ke baad email verify
+//   2. PHONE_VERIFICATION → Phone number verify
+//   3. PASSWORD_RESET → "Forgot Password" flow
+//   4. LOGIN_2FA → 2 Factor Authentication
+//   5. LOGIN_PASSWORDLESS → Bina password ke login
+//
+// SECURITY FEATURES:
+//   → OTP expire hota hai (5-10 minutes)
+//   → Max attempts limit (3-5 attempts, fir block)
+//   → Max resend limit (3-5 resends per hour)
+//   → Used OTP dubara use nahi ho sakta
+//   → Naya OTP generate hone pe purana EXPIRED mark
+//
+// OTP FLOW:
+//   1. User request kare (send OTP)
+//   2. Purane active OTPs EXPIRED mark karo
+//   3. Naya OTP generate karo (6 digit random)
+//   4. DB me store karo (HASHED)
+//   5. Email/SMS bhejo
+//   6. User OTP enter kare
+//   7. Verify karo:
+//      → Hash match? → Expire nahi hua? → Attempts limit?
+//      → Sab sahi → USED mark karo → Action perform karo
+//
+// Relations:
+//   Otp Many ←→ 1 User
+//   "Ek user ke multiple OTPs ho sakte hain (different purposes)"
+// ============================================================
+
+model Otp {
+  id String @id @default(uuid()) @db.Uuid
+
+  // --- Link to User ---
+  // Kiska OTP hai
+  // NULL ho sakta hai jab user abhi registered nahi hai
+  // Example: Registration ke time email verify karna ho
+  // but user record abhi bana nahi
+  userId String? @map("user_id") @db.Uuid
+  user   User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // --- OTP Target ---
+  // OTP kis email/phone pe bheja gaya
+  // User ID se alag isliye kyunki:
+  //   1. User abhi exist nahi karta (registration flow)
+  //   2. User naya email/phone verify kar raha hai
+  //      (jo abhi users table me nahi hai)
+  identifier String // Email ya Phone number jis pe OTP gaya
+  // Example: "john@email.com" ya "+919876543210"
+
+  // --- OTP Value ---
+  // 6 digit code - HASHED store karo
+  // Plain text KABHI store mat karo
+  // Kyun hash? → Agar DB leak ho to bhi koi OTP use nahi kar sakta
+  code String // Hashed OTP (bcrypt/sha256)
+
+  // --- Purpose ---
+  // OTP kyun generate hua
+  purpose OtpPurpose
+
+  // --- Status ---
+  // ACTIVE → abhi valid, use nahi hua
+  // USED → successfully verify ho gaya
+  // EXPIRED → time khatam ya naya OTP generate hua
+  status OtpStatus @default(ACTIVE)
+
+  // --- Attempt Tracking ---
+  // Kitni baar galat OTP daala (brute force protection)
+  // Max 3-5 attempts, uske baad ye OTP EXPIRED mark karo
+  // Aur user ko naya OTP request karna padega
+  attempts    Int @default(0) // Kitni baar try kiya
+  maxAttempts Int @default(5) @map("max_attempts") // Maximum allowed attempts
+
+  // --- Resend Tracking ---
+  // Kitni baar resend kiya (spam protection)
+  // Ye per OTP nahi, per purpose per time window track hoga
+  // Actual resend limiting business logic me handle hoga
+  // Ye field sirf tracking ke liye hai
+  resentCount Int @default(0) @map("resent_count")
+
+  // --- Expiry ---
+  // OTP kab expire hoga (usually 5-10 minutes)
+  expiresAt DateTime @map("expires_at")
+
+  // --- When Used ---
+  // Kab successfully verify hua
+  verifiedAt DateTime? @map("verified_at")
+
+  // --- Timestamps ---
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // --- Indexes ---
+  @@index([identifier, purpose, status])
+  @@index([userId, purpose, status])
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("otps")
+}

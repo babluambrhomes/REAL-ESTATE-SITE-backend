@@ -1,0 +1,98 @@
+// ============================================================
+// TABLE: SELLER CATEGORIES
+// ============================================================
+// Seller ki category define karta hai - seller kya kaam karta hai.
+// INDIVIDUAL ho ya ORGANIZATION, dono seller apni category
+// choose karte hain (SellerProfile.categoryId ke through).
+//
+// Ye table PLATFORM ADMIN manage karega (Super Admin / Staff)
+// Seller sirf SELECT karega apni profile ke liye
+//
+// HIERARCHY SUPPORT (Self-Referencing):
+//   Parent-Child relationship hai
+//   Example:
+//     Real Estate (parent)
+//       ├── Builder (child)
+//       ├── Broker (child)
+//       └── Consultant (child)
+//     Financial Services (parent)
+//       ├── Home Loan (child)
+//       └── Insurance (child)
+//
+//   parentId = NULL → Top-level category
+//   parentId = some_id → Sub-category
+//
+// Relations:
+//   SellerCategory 1 ←→ N SellerProfile
+//     "Ek category me multiple sellers ho sakte hain"
+//
+//   SellerCategory 1 ←→ N SellerCategory (self)
+//     "Ek parent category ke multiple children ho sakte hain"
+//     "Ek child category ka ek parent hoga"
+// ============================================================
+
+model SellerCategory {
+  id String @id @default(uuid()) @db.Uuid
+
+  // --- Category Name ---
+  // "Builder", "Broker", "Consultant", etc.
+  name String
+
+  // --- Slug ---
+  // URL-friendly name for filtering/searching
+  // "builder", "property-broker", "home-loan-consultant"
+  slug String @unique
+
+  // --- Description ---
+  // Category ke baare me detail
+  // Admin dashboard me dikhega
+  description String?
+
+  // --- Icon ---
+  // UI me category ke saath icon dikhane ke liye
+  // "building", "handshake", "chart" etc.
+  icon String?
+
+  // --- Parent Category (Self-Referencing) ---
+  // NULL = Top-level category (like "Real Estate")
+  // Value = Sub-category (like "Builder" under "Real Estate")
+  //
+  // Example:
+  //   { id: 1, name: "Real Estate", parentId: NULL }       ← parent
+  //   { id: 2, name: "Builder", parentId: 1 }              ← child
+  //   { id: 3, name: "Broker", parentId: 1 }               ← child
+  //   { id: 4, name: "Financial Services", parentId: NULL } ← parent
+  //   { id: 5, name: "Home Loan", parentId: 4 }            ← child
+  parentId String?                @map("parent_id") @db.Uuid
+  parent   SellerCategory?        @relation("SellerCategoryHierarchy", fields: [parentId], references: [id])
+
+  // Ek parent ke multiple children
+  children SellerCategory[] @relation("SellerCategoryHierarchy")
+
+  // --- Display Order ---
+  // Categories ko kis order me dikhana hai UI me
+  // Lower number = pehle dikhega
+  displayOrder Int @default(0) @map("display_order")
+
+  // --- Status ---
+  // Active/Inactive toggle
+  // Inactive category select nahi ho sakti naye seller ke liye
+  // But purane sellers jo is category me hain unpe koi effect nahi
+  isActive Boolean @default(true) @map("is_active")
+
+  // --- Timestamps ---
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // ===========================================================
+  // RELATIONS
+  // ===========================================================
+
+  // Is category me kitne sellers hain
+  // SellerCategory 1 ←→ N SellerProfile
+  sellerProfiles SellerProfile[]
+
+  @@index([parentId])
+  @@index([isActive])
+  @@map("seller_categories")
+}

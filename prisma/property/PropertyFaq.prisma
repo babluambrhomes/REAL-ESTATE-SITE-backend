@@ -1,0 +1,32 @@
+// ============================================================
+// TABLE: PROPERTY FAQs
+// ============================================================
+// Property ke baare me common sawaal-jawaab jo buyers ko
+// listing detail pe dikhenge (possession, RERA, maintenance, etc.)
+//
+// Relations:
+//   PropertyFaq Many ←→ 1 Property
+// ============================================================
+
+model PropertyFaq {
+  id String @id @default(uuid()) @db.Uuid
+
+  // --- Property Link ---
+  propertyId String   @map("property_id") @db.Uuid
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  // --- FAQ Content ---
+  question String
+  answer   String @db.Text
+
+  // --- Display ---
+  displayOrder Int @default(0) @map("display_order") // chhota = pehle dikhega
+  isActive     Boolean @default(true) @map("is_active")
+
+  // --- Timestamps ---
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([propertyId])
+  @@map("property_faqs")
+}

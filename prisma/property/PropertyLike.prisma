@@ -1,0 +1,35 @@
+// ============================================================
+// TABLE: PROPERTY LIKES (Wishlist/Saved)
+// ============================================================
+// User jab property like karta hai to uske "saved/wishlist" me
+// bhi jaati hai — like aur wishlist ek hi cheez hai, isliye
+// ek hi table dono ka kaam karta hai.
+//
+// - Ek user ek property sirf ek baar like kar sakta hai
+//   (@@unique([userId, propertyId]))
+// - Like toggle: like → row insert, unlike → row delete
+// - Property.likesCount counter ko transactionally sync karna
+//
+// Relations:
+//   PropertyLike Many ←→ 1 Property
+//   PropertyLike Many ←→ 1 User
+// ============================================================
+
+model PropertyLike {
+  id String @id @default(uuid()) @db.Uuid
+
+  // --- Property Link ---
+  propertyId String   @map("property_id") @db.Uuid
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  // --- User Link ---
+  userId String @map("user_id") @db.Uuid
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // --- Timestamps ---
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([userId, propertyId])
+  @@index([propertyId])
+  @@map("property_likes")
+}

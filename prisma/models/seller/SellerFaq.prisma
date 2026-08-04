@@ -1,0 +1,32 @@
+// ============================================================
+// TABLE: SELLER FAQs
+// ============================================================
+// Seller apne profile ke liye apne FAQ create kar sakta hai.
+// Buyers ko seller ke baare me common sawaal-jawaab profile pe dikhenge.
+//
+// Relations:
+//   SellerFaq Many ←→ 1 SellerProfile
+// ============================================================
+
+model SellerFaq {
+  id String @id @default(uuid()) @db.Uuid
+
+  // --- Seller Link ---
+  sellerId String        @map("seller_id") @db.Uuid
+  seller   SellerProfile @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+
+  // --- FAQ Content ---
+  question String
+  answer   String @db.Text
+
+  // --- Display ---
+  displayOrder Int @default(0) @map("display_order") // chhota = pehle dikhega
+  isActive     Boolean @default(true) @map("is_active")
+
+  // --- Timestamps ---
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([sellerId])
+  @@map("seller_faqs")
+}

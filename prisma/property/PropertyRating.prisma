@@ -1,0 +1,50 @@
+// ============================================================
+// TABLE: PROPERTY RATINGS (Ratings + Comments)
+// ============================================================
+// Koi bhi user property ko rating de sakta hai (1-5) aur optional
+// comment likh sakta hai. Seller rating jaisa hi pattern — ek
+// row me rating + comment.
+//
+// Moderation flow:
+//   1. User rating submit kare
+//   2. Status = PENDING (moderation)
+//   3. Platform approve kare → PUBLISHED
+//      Platform reject kare → HIDDEN
+//
+// Ek user ek property ko sirf ek baar rating de sakta hai.
+// Property.ratingCount / averageRating counters ko sync karna
+// (submit/approve/delete pe transactionally).
+//
+// Relations:
+//   PropertyRating Many ←→ 1 Property
+//   PropertyRating Many ←→ 1 User (reviewer)
+// ============================================================
+
+model PropertyRating {
+  id String @id @default(uuid()) @db.Uuid
+
+  // --- Property Link ---
+  propertyId String   @map("property_id") @db.Uuid
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  // --- Reviewer Link ---
+  userId String @map("user_id") @db.Uuid
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // --- Rating & Comment ---
+  rating  Int // 1-5
+  comment String? @db.Text
+
+  // --- Moderation ---
+  status RatingStatus @default(PENDING)
+
+  // --- Timestamps ---
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Ek user ek property ki ek hi rating de sakta hai
+  @@unique([propertyId, userId])
+  @@index([propertyId, status])
+  @@index([userId])
+  @@map("property_ratings")
+}

@@ -1,0 +1,174 @@
+// ============================================================
+// TABLE 4: SELLER PROFILES
+// ============================================================
+// Jab buyer "Become Seller" kare tab create hoga.
+// Do type ke sellers hain:
+//   1. INDIVIDUAL - Akela kaam karta hai (organization_id NULL)
+//   2. ORGANIZATION - Company ke saath (organization_id linked)
+//
+// Ek User ka ek hi SellerProfile hoga (1-to-1 relation)
+//
+// Relations:
+//   User 1 ←→ 1 SellerProfile
+//   SellerProfile Many ←→ 1 Organization (optional)
+// ============================================================
+
+model SellerProfile {
+  id String @id @default(uuid()) @db.Uuid
+
+  // --- Link to User ---
+  userId String @unique @map("user_id") @db.Uuid
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // --- Public Reference Code ---
+  // URL/profile pe dikhega: "SELL-7F3K2Q"
+  // App layer me generate hoga (collision retry ke saath)
+  referenceCode String @unique @map("reference_code")
+
+  // --- Public Profile Page URL ---
+  // "/seller/abc-builders"
+  slug String @unique
+
+  // --- Seller Type ---
+  // INDIVIDUAL ya ORGANIZATION
+  sellerType SellerType @map("seller_type")
+
+  // --- Organization Link ---
+  // Agar INDIVIDUAL hai to NULL rahega
+  // Agar ORGANIZATION hai to organization_id linked hoga
+  organizationId String?       @map("organization_id") @db.Uuid
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+
+  // --- Category ---
+  // Seller kya kaam karta hai (Builder, Broker, Consultant...)
+  // INDIVIDUAL aur ORGANIZATION dono seller choose karte hain
+  categoryId String?        @map("category_id") @db.Uuid
+  category   SellerCategory? @relation(fields: [categoryId], references: [id])
+
+  // --- Scalar KYC Data (INDIVIDUAL sellers only) ---
+  // Scalar = number (claim), documents table = proof file
+  // ORGANIZATION seller ke liye ye NULL rahenge - company numbers
+  // Organization table pe hain (gst_number, pan_number, rera_number)
+  // Public API me hamesha masked return karo (PAN/Aadhaar sensitive)
+  panNumber     String? @map("pan_number")
+  aadhaarNumber String? @map("aadhaar_number")
+  reraNumber    String? @map("rera_number")
+
+  // --- Public Profile (Market Standard) ---
+  // Buyer ko seller ke baare me dikhega
+  headline        String? // "Licensed Agent - South Delhi"
+  about           String? @db.Text
+  experienceYears Int?    @map("experience_years")
+
+  // ["residential", "commercial", "plots", ...]
+  specializations Json? @default("[]") @db.JsonB
+  // ["Hindi", "English", ...]
+  languages Json? @default("[]") @db.JsonB
+
+  // --- Branding (Profile Page) ---
+  // Seller page ka logo aur cover/banner photo (dono types ke liye canonical)
+  logoUrl       String? @map("logo_url")
+  coverPhotoUrl String? @map("cover_photo_url")
+
+  // --- Address (Common - dono types) ---
+  addressLine String? @map("address_line")
+  city        String?
+  state       String?
+  country     String?
+  pincode     String?
+
+  // --- Trust & Engagement ---
+  happyClientsCount   Int?    @default(0) @map("happy_clients_count")
+  responseTimeMinutes Int?    @map("response_time_minutes") // average response time
+  isAvailable         Boolean @default(true) @map("is_available")
+  // {"hours": "10am-7pm", "off_days": ["sunday"], "note": "..."}
+  availabilityDetails Json? @default("{}") @map("availability_details") @db.JsonB
+
+  // --- Media ---
+  // [{ "url": "...", "thumbnailUrl": "...", "title": "..." }]
+  // Count = array length (alag count field nahi)
+  videos Json? @default("[]") @db.JsonB
+
+  // --- Service Areas & Banks ---
+  // Seller kis-kis location me kaam karta hai
+  // [{ "city": "Mumbai", "state": "MH", "area": "Andheri", "pincode": "400058", "lat": 19.11, "lng": 72.85 }]
+  locations Json? @default("[]") @db.JsonB
+
+  // Kis-kis bank/NBFC ne seller ko loan approval diya hai
+  // [{ "bankName": "SBI", "bankLogo": "/uploads/sbi.png", "loanTypes": ["Home Loan"], "notes": "Pre-approved" }]
+  bankApprovalList Json? @default("[]") @map("bank_approval_list") @db.JsonB
+
+  // --- Achievements & Social ---
+  // ["Best Agent 2025", "1000+ Deals Done", ...]
+  achievements Json? @default("[]") @db.JsonB
+  // ["facebook", "instagram", "linkedin", ...]
+  socialLinks Json? @default("[]") @db.JsonB
+
+  // --- Contact & Lead Preferences ---
+  contactPhone        String? @map("contact_phone")
+  contactEmail        String? @map("contact_email")
+  showContactToBuyers Boolean @default(false) @map("show_contact_to_buyers")
+  leadPreferences     Json?   @default("{}") @db.JsonB
+
+  // --- Verification / KYC ---
+  // Platform verify karega seller ko
+  // Personal KYC (PAN/Aadhaar/RERA) — INDIVIDUAL + ORG dono ke liye
+  verificationStatus VerificationStatus @default(PENDING) @map("verification_status")
+  verifiedAt         DateTime?          @map("verified_at")
+  verifiedBy         String?            @map("verified_by") @db.Uuid
+  verifiedByUser     User?              @relation("VerifiedSeller", fields: [verifiedBy], references: [id])
+
+  // ORG company verification (GST/Company Registration...)
+  // Sirf ORG sellers ke liye; INDIVIDUAL me NULL
+  // SellerProfile pe hi dikhta hai — Organization table query nahi karni padegi
+  organizationVerificationStatus VerificationStatus? @map("organization_verification_status")
+  organizationVerifiedAt         DateTime?           @map("organization_verified_at")
+  organizationVerifiedBy         String?             @map("organization_verified_by") @db.Uuid
+  organizationVerifiedByUser     User?               @relation("VerifiedOrgSeller", fields: [organizationVerifiedBy], references: [id])
+
+  // --- Status ---
+  isActive  Boolean   @default(true) @map("is_active")
+  deletedAt DateTime? @map("deleted_at") // Soft delete
+
+  // --- Timestamps ---
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // ===========================================================
+  // RELATIONS
+  // ===========================================================
+
+  // Seller ke KYC documents
+  // SellerProfile 1 ←→ Many VerificationDocuments
+  verificationDocuments SellerVerificationDocument[]
+
+  // Seller ko mili ratings/reviews
+  // SellerProfile 1 ←→ Many Ratings
+  ratings SellerRating[]
+
+  // Seller ki properties
+  // SellerProfile 1 ←→ Many Properties
+  properties Property[]
+
+  // Seller ko followers
+  // SellerProfile 1 ←→ Many Follows
+  // (INDIVIDUAL seller ke followers; ORGANIZATION seller ke followers Organization pe)
+  followers SellerFollow[]
+
+  // Seller apne liye create kiye FAQs
+  // SellerProfile 1 ←→ Many FAQs
+  faqs SellerFaq[]
+
+  // Seller profile form se aaye enquiries/leads
+  // SellerProfile 1 ←→ Many Enquiries
+  enquiries SellerEnquiry[]
+
+  // Seller ke blog posts
+  // SellerProfile 1 ←→ Many Blog Posts
+  blogPosts SellerBlogPost[]
+
+  @@index([organizationId])
+  @@index([categoryId])
+  @@index([verificationStatus])
+  @@map("seller_profiles")
+}

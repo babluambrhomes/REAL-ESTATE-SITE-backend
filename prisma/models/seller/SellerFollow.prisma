@@ -1,0 +1,37 @@
+// ============================================================
+// TABLE: SELLER FOLLOWS (Followers)
+// ============================================================
+// Buyer/user kisi seller ko follow kar sakta hai.
+// Follower count profile pe dikhta hai (market standard).
+//
+// Seller profile UNIFORM hai (INDIVIDUAL ya ORGANIZATION dono
+// seller ki profile same shape) - isliye follows hamesha SellerProfile pe.
+// Organization type seller ke followers bhi uski SellerProfile pe hain.
+//
+// Count profile pe → relation se derived (prisma._count.followers)
+//   → kabhi out-of-sync nahi hota, alag count field ki zaroorat nahi
+//
+// Relations:
+//   SellerFollow Many ←→ 1 User (follower)
+//   SellerFollow Many ←→ 1 SellerProfile
+// ============================================================
+
+model SellerFollow {
+  id String @id @default(uuid()) @db.Uuid
+
+  // --- Who Follows ---
+  followerId String        @map("follower_id") @db.Uuid
+  follower   User          @relation("FollowsSeller", fields: [followerId], references: [id], onDelete: Cascade)
+
+  // --- Follow Target ---
+  sellerId String        @map("seller_id") @db.Uuid
+  seller   SellerProfile @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+
+  // --- Timestamps ---
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Ek user ek seller ko ek hi baar follow kar sakta hai
+  @@unique([followerId, sellerId])
+  @@index([sellerId])
+  @@map("seller_follows")
+}

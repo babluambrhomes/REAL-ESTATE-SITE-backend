@@ -1,0 +1,35 @@
+// ============================================================
+// TABLE 3: BUYER PROFILES
+// ============================================================
+// Jab koi register karta hai to AUTOMATICALLY buyer profile banta hai.
+// Har user by default buyer hai.
+// Ek User ka ek hi BuyerProfile hoga (1-to-1 relation)
+//
+// Relation:
+//   User 1 ←→ 1 BuyerProfile
+//   Register hote hi create hoga
+// ============================================================
+
+model BuyerProfile {
+  id String @id @default(uuid()) @db.Uuid
+
+  // --- Link to User ---
+  userId String @unique @map("user_id") @db.Uuid
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // --- Buyer Specific Data ---
+  isActive Boolean @default(true) @map("is_active")
+
+  // Buyer ki preferences - flexible JSONB field
+  // Example: { "budget_min": 500000, "budget_max": 5000000,
+  //            "preferred_cities": ["Mumbai", "Pune"],
+  //            "property_types": ["Apartment", "Villa"] }
+  preferences Json? @default("{}") @db.JsonB
+
+  // --- Timestamps ---
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([userId])
+  @@map("buyer_profiles")
+}

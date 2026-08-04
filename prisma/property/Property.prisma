@@ -1,0 +1,134 @@
+// ============================================================
+// TABLE: PROPERTIES
+// ============================================================
+// Real estate property listing ka main table.
+// Seller apni property list karta hai, buyer search/detail dekh sakta hai.
+//
+// Relations:
+//   Property Many ←→ 1 SellerProfile
+//   Property Many ←→ 1 Organization (optional)
+//   Property Many ←→ 1 User (verifiedBy, optional)
+// ============================================================
+
+model Property {
+  id String @id @default(uuid()) @db.Uuid
+
+  propertyCode Int @unique @default(autoincrement()) @map("property_code")
+
+  // --- Seller Info ---
+  sellerId String        @map("seller_id") @db.Uuid
+  seller   SellerProfile @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+
+  organizationId String?       @map("organization_id") @db.Uuid
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+
+  // --- Basic Info ---
+  title       String
+  slug        String  @unique
+  description String? @db.Text
+
+  transactionType TransactionType @map("transaction_type")
+  propertyType    PropertyType    @map("property_type")
+  propertyStatus  PropertyStatus  @default(AVAILABLE) @map("property_status")
+
+  // --- Location ---
+  addressLine   String?  @map("address_line")
+  city          String?
+  state         String?
+  country       String?
+  pincode       String?
+  latitude      Decimal? @db.Decimal(9, 6)
+  longitude     Decimal? @db.Decimal(9, 6)
+  googleMapLink String?  @map("google_map_link")
+
+  // --- Property Specifics ---
+  ownershipType OwnershipType? @map("ownership_type")
+  listedBy      ListedBy       @default(OWNER) @map("listed_by")
+
+  ageOfProperty Int? @map("age_of_property") // in years
+
+  // --- Amenities ---
+  // ["parking", "swimming_pool", "gym", "garden", ...]
+  amenities Json? @default("[]") @db.JsonB
+
+  // --- Nearby & Society (shared across all configs) ---
+  // Near-by landmarks: ["FNG Expressway", "APEX Multispecialty", ...]
+  nearbyPlaces Json? @default("[]") @map("nearby_places") @db.JsonB
+  // Society stats: { "towers": 3, "totalUnits": 420, "landAreaAcres": 4.5, "openSpacePercent": 70, "yearsOfTrust": 8 }
+  societyInfo  Json? @default("{}") @map("society_info") @db.JsonB
+
+  // --- Media ---
+  // [{"url": "...", "isFeatured": true}, ...]
+  images         Json?   @default("[]") @db.JsonB
+  videoUrl       String? @map("video_url")
+  virtualTourUrl String? @map("virtual_tour_url")
+
+  // --- Legal & Docs ---
+  reraNumber         String? @map("rera_number")
+  registrationNumber String? @map("registration_number")
+  taxAssessment      String? @map("tax_assessment")
+  encumbrance        String? // Encumbrance certificate details
+
+  // --- Contact Info ---
+  contactName  String? @map("contact_name")
+  contactPhone String? @map("contact_phone")
+  contactEmail String? @map("contact_email")
+
+  // --- Metadata ---
+  viewsCount    Int      @default(0) @map("views_count")
+  likesCount    Int      @default(0) @map("likes_count")
+  sharesCount   Int      @default(0) @map("shares_count")
+  ratingCount   Int      @default(0) @map("rating_count")
+  averageRating Decimal? @map("average_rating") @db.Decimal(3, 2) // 0.00-5.00
+  isFeatured    Boolean  @default(false) @map("is_featured")
+  isActive      Boolean  @default(true) @map("is_active")
+  isVerified    Boolean  @default(false) @map("is_verified")
+
+  verifiedAt     DateTime? @map("verified_at")
+  verifiedBy     String?   @map("verified_by") @db.Uuid
+  verifiedByUser User?     @relation("VerifiedProperty", fields: [verifiedBy], references: [id])
+
+  // --- SEO ---
+  metaTitle       String? @map("meta_title")
+  metaDescription String? @map("meta_description")
+  metaKeywords    String? @map("meta_keywords")
+
+  // --- Timestamps ---
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at") // Soft delete
+
+  // Property pe aaye seller enquiries/leads
+  // Property 1 ←→ Many Enquiries
+  enquiries SellerEnquiry[]
+
+  // BHK configurations (2 BHK, 3 BHK, 4 BHK...) alag price/metrics ke saath
+  // Property 1 ←→ Many Variants
+  variants PropertyVariant[]
+
+  // Property ke common sawaal-jawaab (possession, RERA, maintenance...)
+  // Property 1 ←→ Many FAQs
+  faqs PropertyFaq[]
+
+  // Kis user ne property like/wishlist ki
+  // Property 1 ←→ Many Likes
+  likes PropertyLike[]
+
+  // Kisi bhi user ne property ko ratings/comments diye
+  // Property 1 ←→ Many Ratings
+  ratings PropertyRating[]
+
+  @@index([sellerId])
+  @@index([organizationId])
+  @@index([propertyType])
+  @@index([transactionType])
+  @@index([propertyStatus])
+  @@index([city])
+  @@index([state])
+  @@index([isFeatured])
+  @@index([isActive])
+  @@index([isVerified])
+  @@index([deletedAt])
+  @@index([propertyCode])
+  @@map("properties")
+}

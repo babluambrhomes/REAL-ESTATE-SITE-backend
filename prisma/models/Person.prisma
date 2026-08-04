@@ -1,0 +1,45 @@
+// ============================================================
+// TABLE 2: PERSONS
+// ============================================================
+// User ki personal/profile information.
+// Auth se alag rakha hai kyunki:
+//   - Profile info change hoti rehti hai
+//   - Auth info rarely change hota hai
+//   - Separation of concerns
+// Ek User ka ek hi Person hoga (1-to-1 relation)
+// ============================================================
+
+model Person {
+  id String @id @default(uuid()) @db.Uuid
+
+  // --- Link to User ---
+  // Kiska profile hai ye
+  userId String @unique @map("user_id") @db.Uuid
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // onDelete: Cascade → User delete hoga to Person bhi delete hoga
+
+  // --- Personal Info ---
+  firstName   String    @map("first_name")
+  lastName    String    @map("last_name")
+  avatarUrl   String?   @map("avatar_url") // Profile photo
+  dateOfBirth DateTime? @map("date_of_birth") @db.Date
+  gender      Gender? // MALE, FEMALE, OTHER
+
+  // --- Address ---
+  addressLine String? @map("address_line")
+  city        String?
+  state       String?
+  country     String?
+  pincode     String?
+
+  // --- Geo Location ---
+  latitude  Decimal? @db.Decimal(9, 6)
+  longitude Decimal? @db.Decimal(9, 6)
+
+  // --- Timestamps ---
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([userId])
+  @@map("persons")
+}

@@ -1,0 +1,69 @@
+// ============================================================
+// TABLE 1: USERS 
+// ============================================================
+
+model User {
+  id          String  @id @default(uuid()) @db.Uuid
+  email       String? @unique
+  phone       String? @unique
+  googleId    String? @unique
+  hasPassword String?
+
+  emailVerified Boolean @default(false) @map("email_verified")
+  phoneVerified Boolean @default(false) @map("phone_verified")
+
+  status        UserStatus    @default(PENDING)
+  accountOrigin AccountOrigin @default(SELF_REGISTERED) @map("account_origin")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  person               Person?
+  buyerProfile         BuyerProfile?
+  sellerProfile        SellerProfile?
+  createdOrganizations Organization[]
+
+  // Is user ne kaunsi organizations/sellers/documents verify kiye (platform staff)
+  verifiedOrganizations      Organization[]               @relation("VerifiedOrganization")
+  verifiedSellerProfiles     SellerProfile[]              @relation("VerifiedSeller")
+  verifiedOrgSellerProfiles  SellerProfile[]              @relation("VerifiedOrgSeller")
+  verifiedSellerDocuments    SellerVerificationDocument[] @relation("VerifiedDocument")
+
+  // Platform staff ne kaunsi properties verify ki
+  verifiedProperties Property[] @relation("VerifiedProperty")
+
+  // Buyer ne jo ratings diye
+  sellerRatingsGiven SellerRating[]
+
+  // User ne kin sellers/orgs ko follow kiya
+  following SellerFollow[] @relation("FollowsSeller")
+
+  // User ne seller profiles pe jo enquiries/leads bheje
+  sellerEnquiries SellerEnquiry[]
+
+  // User ne seller ke blog pe jo posts likhi (author)
+  blogPostsWritten SellerBlogPost[] @relation("BlogAuthor")
+
+  // User ne blog posts pe jo interactions kiye (like/dislike/comment)
+  blogInteractions SellerBlogInteraction[]
+
+  // User ne kin properties ko like/wishlist kiya
+  propertyLikes PropertyLike[]
+
+  // User ne kin properties ko ratings/comments diye
+  propertyRatingsGiven PropertyRating[]
+
+  memberships          Member[]
+  createdRoles         Role[]
+  sentInvitations      Invitation[]   @relation("InvitedBy")
+  acceptedInvitations  Invitation[]   @relation("AcceptedByUser")
+
+  refreshTokens RefreshToken[]
+
+  otps Otp[]
+
+  @@index([email])
+  @@index([phone])
+  @@index([status])
+  @@map("users")
+}

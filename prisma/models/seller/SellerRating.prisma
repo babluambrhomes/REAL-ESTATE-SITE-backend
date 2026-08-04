@@ -1,0 +1,48 @@
+// ============================================================
+// TABLE: SELLER RATINGS
+// ============================================================
+// Buyer apne deal/experience ke baad seller ko rating de sakta hai.
+// Trust system - market standard.
+//
+// Moderation flow:
+//   1. Buyer rating submit kare
+//   2. Status = PENDING (moderation)
+//   3. Platform approve kare → PUBLISHED
+//      Platform reject kare → HIDDEN
+//
+// Ek buyer ek seller ko sirf ek baar rating de sakta hai.
+//
+// Relations:
+//   SellerRating Many ←→ 1 SellerProfile
+//   SellerRating Many ←→ 1 User (buyer/reviewer)
+// ============================================================
+
+model SellerRating {
+  id String @id @default(uuid()) @db.Uuid
+
+  // --- Seller Link ---
+  sellerId String        @map("seller_id") @db.Uuid
+  seller   SellerProfile @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+
+  // --- Buyer Link (reviewer) ---
+  buyerId String @map("buyer_id") @db.Uuid
+  buyer   User   @relation(fields: [buyerId], references: [id])
+
+  // --- Rating ---
+  rating  Int // 1-5
+  comment String? @db.Text
+
+  // --- Moderation ---
+  status         RatingStatus @default(PENDING)
+  moderationNote String?      @map("moderation_note")
+
+  // --- Timestamps ---
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Ek buyer ek seller ko ek hi rating de sakta hai
+  @@unique([sellerId, buyerId])
+  @@index([sellerId, status])
+  @@index([buyerId])
+  @@map("seller_ratings")
+}

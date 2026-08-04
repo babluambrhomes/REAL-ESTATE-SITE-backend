@@ -1,0 +1,49 @@
+// ============================================================
+// TABLE: SELLER ENQUIRIES (Contact/Lead Form)
+// ============================================================
+// Buyer seller profile pe form bhar kar seedha seller se contact
+// kar sakta hai. Har form submission is table me store hota hai.
+//
+// - userId optional: login nahi kiya to sirf name/email/phone
+// - propertyId optional: kis property me interest hai
+// - status: NEW → seller respond kare → CONTACTED → CLOSED
+//
+// Relations:
+//   SellerEnquiry Many ←→ 1 SellerProfile
+//   SellerEnquiry Many ←→ 1 User (optional - buyer)
+//   SellerEnquiry Many ←→ 1 Property (optional)
+// ============================================================
+
+model SellerEnquiry {
+  id String @id @default(uuid()) @db.Uuid
+
+  // --- Seller Link ---
+  sellerId String        @map("seller_id") @db.Uuid
+  seller   SellerProfile @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+
+  // --- Buyer Link (optional) ---
+  userId String? @map("user_id") @db.Uuid
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  // --- Property Link (optional) ---
+  propertyId String?  @map("property_id") @db.Uuid
+  property   Property? @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+
+  // --- Enquiry Form Data ---
+  name    String
+  email   String
+  phone   String?
+  message String? @db.Text
+
+  // --- Status ---
+  status EnquiryStatus @default(NEW)
+
+  // --- Timestamps ---
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([sellerId, status])
+  @@index([userId])
+  @@index([propertyId])
+  @@map("seller_enquiries")
+}

@@ -1,0 +1,95 @@
+// ============================================================
+// TABLE 5: ORGANIZATIONS
+// ============================================================
+// Organization/Company ki information.
+// Jab koi user "Become Seller → Organization" choose kare
+// tab ye create hoga.
+// Note: Organization ki category nahi hoti - category SellerProfile pe
+// lagti hai (INDIVIDUAL aur ORGANIZATION dono seller choose karte hain)
+//
+// Jab Organization create hoti hai, 3 cheezein ek saath hongi:
+//   1. Organization record INSERT
+//   2. "Owner" role auto-create (is_system_role = true)
+//   3. Owner ka Member record INSERT with Owner role
+//
+// Relations:
+//   Organization 1 ←→ Many SellerProfiles
+//   Organization 1 ←→ Many Members
+//   Organization 1 ←→ Many Roles
+//   Organization 1 ←→ Many Invitations
+//   Organization Many ←→ 1 User (created_by)
+// ============================================================
+
+model Organization {
+  id String @id @default(uuid()) @db.Uuid
+
+  // --- Basic Info ---
+  name        String
+  description String? @db.Text
+
+  // --- Business Info ---
+  registrationNumber String? @map("registration_number") // GST/Company registration
+  website            String?
+
+  // --- Business Verification (KYC) - Company Extras ---
+  gstNumber       String? @map("gst_number")
+  yearEstablished Int?    @map("year_established")
+  employeeCount   Int?    @map("employee_count")
+
+  // --- Company Verification (org-level) ---
+  // Company docs (GST_CERTIFICATE, COMPANY_REGISTRATION...) org level pe
+  // verify hote hain (verificationDocuments relation). Iska status yahan:
+  verificationStatus VerificationStatus @default(PENDING) @map("verification_status")
+  verifiedAt         DateTime?          @map("verified_at")
+  verifiedBy         String?            @map("verified_by") @db.Uuid
+  verifiedByUser     User?              @relation("VerifiedOrganization", fields: [verifiedBy], references: [id])
+
+  // NOTE: Common seller keys (slug, address, contact, panNumber/reraNumber,
+  // metrics, followers) SellerProfile pe hain - dono seller types uniform.
+  // Organization sirf extras rakhta hai.
+
+  // --- Status ---
+  status OrganizationStatus @default(ACTIVE)
+
+  // --- Who Created ---
+  createdBy     String @map("created_by") @db.Uuid
+  createdByUser User   @relation(fields: [createdBy], references: [id])
+
+  // --- Timestamps ---
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // ===========================================================
+  // RELATIONS
+  // ===========================================================
+
+  // Is organization ke seller profiles
+  // Organization 1 ←→ Many SellerProfiles
+  sellerProfiles SellerProfile[]
+
+  // Is organization ke members (Owner, Admin, Agent, etc.)
+  // Organization 1 ←→ Many Members
+  members Member[]
+
+  // Is organization ke custom roles
+  // Organization 1 ←→ Many Roles
+  roles Role[]
+
+  // Is organization ke pending invitations
+  // Organization 1 ←→ Many Invitations
+  invitations Invitation[]
+
+  // Organization ke KYC verification documents
+  // Organization 1 ←→ Many VerificationDocuments
+  // (ORGANIZATION seller ke saare company docs yahan centralized honge)
+  verificationDocuments SellerVerificationDocument[]
+
+  // Is organization ki properties
+  // Organization 1 ←→ Many Properties
+  properties Property[]
+
+  @@index([createdBy])
+  @@index([status])
+  @@map("organizations")
+  
+}

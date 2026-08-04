@@ -1,0 +1,59 @@
+// ============================================================
+// TABLE 6: PERMISSIONS (Master List)
+// ============================================================
+// Ye MASTER LIST hai - system me kya kya karna possible hai.
+// Ye data DEVELOPER seed karega (migration/seed script se).
+// Users ye create NAHI karenge.
+//
+// Do types:
+//   ORGANIZATION scope → Org ke andar ki permissions
+//   PLATFORM scope → Platform level ki permissions
+//
+// Example:
+//   { scope: ORGANIZATION, resource: "property", action: "create",
+//     display_name: "Property Create Kare" }
+//
+// Relations:
+//   Permission 1 ←→ Many RolePermissions
+// ============================================================
+
+model Permission {
+  id String @id @default(uuid()) @db.Uuid
+
+  // --- Scope ---
+  // ORGANIZATION permissions sirf org roles me assign hongi
+  // PLATFORM permissions sirf platform roles me assign hongi
+  scope PermissionScope
+
+  // --- Permission Definition ---
+  // resource = "kis cheez pe" (property, member, listing, etc.)
+  // action = "kya kar sakta hai" (create, read, update, delete, etc.)
+  resource String // "property", "member", "listing", "report", "billing"
+  action   String // "create", "read", "update", "delete", "manage", "invite"
+
+  // --- Display Info ---
+  // UI me dikhane ke liye readable name aur description
+  displayName String  @map("display_name") // "Property Create Kare"
+  description String? // "User can create new property listings"
+
+  // --- Timestamps ---
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // ===========================================================
+  // RELATIONS
+  // ===========================================================
+
+  // Ye permission kin kin roles me hai
+  // Permission 1 ←→ Many RolePermissions
+  rolePermissions RolePermission[]
+
+  // ===========================================================
+  // INDEXES
+  // ===========================================================
+
+  // Ek scope + resource + action combination UNIQUE hona chahiye
+  // Taki duplicate permissions na ban sakein
+  @@unique([scope, resource, action])
+  @@index([scope])
+  @@map("permissions")
+}
