@@ -1,10 +1,9 @@
 import { Response } from "express";
 import path from "path";
-import fs from "fs/promises";
-import sharp from "sharp";
-import { ApiResponse, asyncHandler } from "../../utils";
+import { ApiError, ApiResponse, asyncHandler } from "../../utils";
 import { AuthRequest } from "../../types";
 import { UpdateUserInput } from "./user.validation";
+import { processImage } from "../../workers/image/imageWorker.pool";
 import * as userService from "./user.service";
 
 const getProfile = asyncHandler(async (req: AuthRequest, res: Response) => {
@@ -28,17 +27,22 @@ const updateProfilePicture = asyncHandler(async (req: AuthRequest, res: Response
   }
 
   const parsed = path.parse(file.path);
-  const optimizedFilename = `${parsed.name}.webp`;
-  const optimizedPath = path.join(parsed.dir, optimizedFilename);
+  const result = await processImage({
+    inputPath: file.path,
+    outputDir: parsed.dir,
+    originalName: path.parse(file.originalname).name,
+    deleteOriginal: true,
+    outputs: [
+      { suffix: "avatar", width: 400, height: 400, fit: "cover", format: "webp", quality: 80 },
+    ],
+  });
 
-  await sharp(file.path)
-    .resize(400, 400, { fit: "cover", withoutEnlargement: true })
-    .webp({ quality: 80 })
-    .toFile(optimizedPath);
+  if (!result.ok) {
+    throw new ApiError(500, result.error || "Image processing failed");
+  }
 
-  await fs.unlink(file.path);
-
-  const avatarUrl = `/uploads/${optimizedFilename}`;
+  const relPath = path.relative(parsed.dir, result.outputs[0]).split(path.sep).join("/");
+  const avatarUrl = `/uploads/${relPath}`;
   await userService.updateProfilePicture(req.user!.id, avatarUrl);
 
   res.status(200).json(new ApiResponse(200, { avatarUrl }, "Profile picture updated"));

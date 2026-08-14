@@ -13,6 +13,10 @@ import { initSocket } from "./config/socket";
 import { errorHandler } from "./middlewares";
 import authRouter from "./modules/auth/auth.route";
 import userRouter from "./modules/user/user.route";
+import sellerRouter from "./modules/seller/seller.route";
+import sellerKycRouter from "./modules/sellerkyc/kyc.route";
+import sellerCategoryRouter from "./modules/sellercategory/sellercategory.route";
+import propertyRouter from "./modules/property/property.route";
 import "./workers/email.worker";
 
 
@@ -43,6 +47,10 @@ app.use("/uploads", express.static(path.join(__dirname, "..", "uploads")));
 
 app.use("/api/v1/auth", authRouter);
 app.use("/api/v1/users", userRouter);
+app.use("/api/v1/sellers", sellerRouter);
+app.use("/api/v1/sellers/kyc", sellerKycRouter);
+app.use("/api/v1/seller-categories", sellerCategoryRouter);
+app.use("/api/v1/properties", propertyRouter);
 
 app.get("/", (req, res) => {
   res.json({ message: "Real Estate API is running" });

@@ -25,7 +25,7 @@ model PropertyVariant {
   // --- Configuration Label ---
   // "2 BHK", "3 BHK", "4 BHK", "Studio", "Plot"
   variantName String @map("variant_name")
-  variantCode Int    @unique @default(autoincrement()) @map("variant_code")
+  variantCode String    @unique  @map("variant_code")
 
   // --- Specs ---
   bedrooms  Int?

@@ -24,3 +24,10 @@ export { createOtp, verifyOtp, isOtpExpired, generateOtpCode } from "./otp.helpe
 
 export { getPaginationParams, buildPaginatedResponse } from "./pagination.helper";
 export type { PaginationParams, PaginationResult, PaginatedResponse } from "./pagination.helper";
+
+export {
+  generateTimestampSuffix,
+  isUniqueViolation,
+  isRecordNotFound,
+  withUniqueRetry,
+} from "./prisma.helper";

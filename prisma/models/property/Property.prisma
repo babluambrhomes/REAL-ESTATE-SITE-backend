@@ -13,7 +13,7 @@
 model Property {
   id String @id @default(uuid()) @db.Uuid
 
-  propertyCode Int @unique @default(autoincrement()) @map("property_code")
+  propertyCode String @unique  @map("property_code")
 
   // --- Seller Info ---
   sellerId String        @map("seller_id") @db.Uuid

@@ -182,7 +182,9 @@ const register = async (data: RegisterInput, userAgent?: string, ipAddress?: str
       if (existing.status === "SUSPENDED" || existing.status === "DEACTIVATED") throw new ApiError(403, "Account is not accessible");
 
       const otp = await createOtp({ userId: existing.id, identifier: phone, purpose: "PHONE_VERIFICATION" as OtpPurpose });
-      smsQueue.add("send-phone-otp", { to: phone, message: `Your AmbrHomes verification code is: ${otp.plainCode}. Valid for 10 minutes.` });
+
+      console.log(`OTP for phone ${phone}: ${otp.plainCode}`); // Log the OTP for testing purposes
+      // smsQueue.add("send-phone-otp", { to: phone, message: `Your AmbrHomes verification code is: ${otp.plainCode}. Valid for 10 minutes.` });
 
       return generateTokens(existing, userAgent, ipAddress);
     }
