@@ -17,6 +17,7 @@ import sellerRouter from "./modules/seller/seller.route";
 import sellerKycRouter from "./modules/sellerkyc/kyc.route";
 import sellerCategoryRouter from "./modules/sellercategory/sellercategory.route";
 import propertyRouter from "./modules/property/property.route";
+import searchRouter from "./modules/search/search.route";
 import "./workers/email.worker";
 
 
@@ -51,6 +52,7 @@ app.use("/api/v1/sellers", sellerRouter);
 app.use("/api/v1/sellers/kyc", sellerKycRouter);
 app.use("/api/v1/seller-categories", sellerCategoryRouter);
 app.use("/api/v1/properties", propertyRouter);
+app.use("/api/v1/search", searchRouter);
 
 app.get("/", (req, res) => {
   res.json({ message: "Real Estate API is running" });

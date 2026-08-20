@@ -31,3 +31,9 @@ export {
   isRecordNotFound,
   withUniqueRetry,
 } from "./prisma.helper";
+
+export {
+  buildCacheKey,
+  withCache,
+  getCacheVersion,
+} from "./cache.helper";

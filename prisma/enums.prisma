@@ -110,33 +110,48 @@ enum Gender {
 
 // Property ka type - Market me common types
 enum PropertyType {
-  APARTMENT // Apartment/Flat
-  HOUSE // Individual House/Bungalow
-  VILLA // Villa
-  PLOT // Plot/Land
-  COMMERCIAL_SHOP // Dukaan/Shop
-  COMMERCIAL_OFFICE // Office Space
-  COMMERCIAL_BUILDING // Commercial Building
-  FARM_HOUSE // Farmhouse
-  PENTHOUSE // Penthouse
-  STUDIO // Studio Apartment
+  APARTMENT
+  HOUSE
+  VILLA
+  BUILDER_FLOOR
+  PENTHOUSE
+  STUDIO
+
+  PLOT
+  AGRICULTURAL_LAND
+  FARM_HOUSE
+
+  COMMERCIAL_SHOP
+  COMMERCIAL_OFFICE
+  COMMERCIAL_BUILDING
+  SHOWROOM
+  WAREHOUSE
 }
 
 // Transaction type - Sale ya Rent
 enum TransactionType {
   SALE // Sale/Buy
   RENT // Rent/Lease
+  LEASE
 }
 
 // Property ki current status
 enum PropertyStatus {
+  DRAFT // Abhi published nahi hua
   AVAILABLE // Available for sale/rent
   UNDER_OFFER // Offer aaya hai
   SOLD // Sold ho gayi
   RENTED // Rent pe di gayi
   LEASED // Lease pe di gayi
   WITHDRAWN // Market se hata li
-  DRAFT // Draft me hai, publish nahi hui
+}
+
+enum ListingStatus {
+  DRAFT
+  PUBLISHED
+  PAUSED
+  EXPIRED
+  REJECTED
 }
 
 // Furnishing status
@@ -151,6 +166,7 @@ enum OwnershipType {
   FREEHOLD // Complete ownership
   LEASEHOLD // Lease based ownership
   CO_OPERATIVE // Cooperative society
+  POWER_OF_ATTORNEY
 }
 
 // Kiske through listed hai
@@ -161,10 +177,10 @@ enum ListedBy {
 }
 
 // Property ki construction/availability status
-enum AvailabilityStatus {
-  READY_TO_MOVE // Ready to move in
-  UNDER_CONSTRUCTION // Under construction
-  NEW_LAUNCH // Newly launched project
+enum ConstructionStatus {
+  READY_TO_MOVE
+  UNDER_CONSTRUCTION
+  NEW_LAUNCH // Abhi naya launch hua
 }
 
 // ============================================================

@@ -93,6 +93,12 @@ model Property {
   metaDescription String? @map("meta_description")
   metaKeywords    String? @map("meta_keywords")
 
+  // --- Search Engine Columns (managed by triggers, not Prisma) ---
+  // PostGIS geography point — auto-populated by trg_property_geog trigger
+  geog Unsupported("geography")?
+  // Full-text search vector — auto-populated by trg_property_search_vector trigger
+  searchVector Unsupported("tsvector")?
+
   // --- Timestamps ---
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")

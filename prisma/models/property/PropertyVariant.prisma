@@ -53,7 +53,7 @@ model PropertyVariant {
   // --- Floor & Availability ---
   floorNumber        Int?                @map("floor_number")
   totalFloors        Int?                @map("total_floors")
-  availabilityStatus AvailabilityStatus? @map("availability_status") // READY_TO_MOVE / UNDER_CONSTRUCTION / NEW_LAUNCH
+  availabilityStatus ConstructionStatus? @map("construction_status") // READY_TO_MOVE / UNDER_CONSTRUCTION
   possessionDate     DateTime?           @map("possession_date") @db.Date
   isAvailable        Boolean             @default(true) @map("is_available")
   inventoryCount     Int                 @default(0) @map("inventory_count") // kitne units is config ke
@@ -61,7 +61,7 @@ model PropertyVariant {
   // --- Furnishing ---
   furnishingStatus FurnishingStatus? @map("furnishing_status")
   // [{ "item": "AC", "count": 2 }, { "item": "Sofa", "count": 1 }, ...]
-  furnishingItems  Json?             @default("[]") @map("furnishing_items") @db.JsonB
+  furnishingItems  Json?  @default("[]") @map("furnishing_items") @db.JsonB
 
   // --- Media (per-config gallery) ---
   images Json? @default("[]") @db.JsonB
