@@ -51,8 +51,27 @@ const login = asyncHandler(async (req: AuthRequest, res: Response) => {
 });
 
 const verifyOtp = asyncHandler(async (req: AuthRequest, res: Response) => {
-  const result = await authService.verifyOtp(req.body as VerifyOtpInput);
-  res.status(200).json(new ApiResponse(200, null, result.message));
+  const userAgent = req.headers["user-agent"];
+  const ipAddress = req.ip;
+
+  const result = await authService.verifyOtp(req.body as VerifyOtpInput, userAgent, ipAddress) as any;
+
+  if (result.accessToken && result.refreshToken) {
+    res.cookie("accessToken", result.accessToken, getAccessCookieOptions());
+    res.cookie("refreshToken", result.refreshToken, getRefreshCookieOptions());
+  }
+
+  res.status(200).json(
+    new ApiResponse(
+      200,
+      {
+        user: result.user || null,
+        accessToken: result.accessToken || null,
+        refreshToken: result.refreshToken || null,
+      },
+      result.message
+    )
+  );
 });
 
 const refreshToken = asyncHandler(async (req: AuthRequest, res: Response) => {

@@ -280,7 +280,7 @@ const login = async (data: LoginInput, userAgent?: string, ipAddress?: string) =
   throw new ApiError(400, "Invalid login credentials");
 };
 
-const verifyOtp = async (data: VerifyOtpInput) => {
+const verifyOtp = async (data: VerifyOtpInput, userAgent?: string, ipAddress?: string) => {
   const { identifier, code, purpose } = data;
 
   const result = await verifyOtpHelper({ identifier, code, purpose: purpose as OtpPurpose });
@@ -290,20 +290,13 @@ const verifyOtp = async (data: VerifyOtpInput) => {
     const user = await prisma.user.findFirst({ where: { email: identifier } });
     if (!user) throw new ApiError(404, "User not found");
 
-    const updateData: any = { emailVerified: true };
-    if (user.status === "PENDING" && user.phoneVerified) {
-      updateData.status = "ACTIVE";
-    }
-    await prisma.user.update({ where: { id: user.id }, data: updateData });
+    const updatedUser = await prisma.user.update({
+      where: { id: user.id },
+      data: { emailVerified: true },
+    });
 
-    if (updateData.status === "ACTIVE") {
-      const person = await prisma.person.findUnique({ where: { userId: user.id }, select: { firstName: true } });
-      const userName = person?.firstName || user.email?.split("@")[0] || "User";
-      const welcomeHtml = welcomeTemplate({ userName });
-      await emailQueue.add("send-welcome-email", { to: user.email!, subject: welcomeHtml.subject, html: welcomeHtml.html });
-    }
-
-    return { message: "Email verified successfully" };
+    const tokens = await generateTokens(updatedUser, userAgent, ipAddress);
+    return { message: "Email verified successfully", ...tokens };
   }
 
   if (purpose === "PHONE_VERIFICATION") {
@@ -311,10 +304,10 @@ const verifyOtp = async (data: VerifyOtpInput) => {
     if (!user) throw new ApiError(404, "User not found");
 
     const updateData: any = { phoneVerified: true };
-    if (user.status === "PENDING" && user.emailVerified) {
+    if (user.status === "PENDING") {
       updateData.status = "ACTIVE";
     }
-    await prisma.user.update({ where: { id: user.id }, data: updateData });
+    const updatedUser = await prisma.user.update({ where: { id: user.id }, data: updateData });
 
     if (updateData.status === "ACTIVE" && user.email) {
       const person = await prisma.person.findUnique({ where: { userId: user.id }, select: { firstName: true } });
@@ -323,7 +316,8 @@ const verifyOtp = async (data: VerifyOtpInput) => {
       await emailQueue.add("send-welcome-email", { to: user.email!, subject: welcomeHtml.subject, html: welcomeHtml.html });
     }
 
-    return { message: "Phone verified successfully" };
+    const tokens = await generateTokens(updatedUser, userAgent, ipAddress);
+    return { message: "Phone verified successfully", ...tokens };
   }
 
   return { message: "OTP verified successfully" };
@@ -344,12 +338,13 @@ const addContact = async (userId: string, data: AddContactInput) => {
     });
 
     const otp = await createOtp({ userId, identifier: phone, purpose: "PHONE_VERIFICATION" as OtpPurpose });
+    console.log('otp.plainCode', otp.plainCode)
     smsQueue.add("send-phone-otp", { to: phone, message: `Your AmbrHomes verification code is: ${otp.plainCode}. Valid for 10 minutes.` });
   }
 
   if (email) {
     const existing = await prisma.user.findUnique({ where: { email } });
-    if (existing) {
+    if (existing && existing.id !== userId) {
       throw new ApiError(409, "Email already in use");
     }
 
@@ -359,6 +354,8 @@ const addContact = async (userId: string, data: AddContactInput) => {
     });
 
     const otp = await createOtp({ userId, identifier: email, purpose: "EMAIL_VERIFICATION" as OtpPurpose });
+
+     console.log('otp.plainCode', otp.plainCode)
     const template = otpVerificationTemplate({ code: otp.plainCode, userName: email.split("@")[0] });
     emailQueue.add("send-otp-email", { to: email, subject: template.subject, html: template.html });
   }

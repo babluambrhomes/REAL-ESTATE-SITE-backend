@@ -52,6 +52,7 @@ app.use("/api/v1/sellers", sellerRouter);
 app.use("/api/v1/sellers/kyc", sellerKycRouter);
 app.use("/api/v1/seller-categories", sellerCategoryRouter);
 app.use("/api/v1/properties", propertyRouter);
+app.use("/api/v1/properties", propertyRouter);
 app.use("/api/v1/search", searchRouter);
 
 app.get("/", (req, res) => {

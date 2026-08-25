@@ -236,81 +236,88 @@ const executeSearch = async (
       orderBy = Prisma.sql`p."createdAt" DESC`;
   }
 
-  // --- Execute count query ---
-  const countResult = await prisma.$queryRaw<{ count: bigint }[]>`
-    SELECT COUNT(DISTINCT p."id")::bigint AS count
-    FROM "Property" p
-    WHERE ${whereClause}
-  `;
+  // --- Execute queries inside transaction with timeout protection ---
+  const [countResult, properties] = await prisma.$transaction(async (tx) => {
+    // 5 second query timeout — prevents long-running distance/text searches
+    await tx.$executeRaw`SET LOCAL statement_timeout = '5000'`;
+
+    const count = await tx.$queryRaw<{ count: bigint }[]>`
+      SELECT COUNT(DISTINCT p."id")::bigint AS count
+      FROM "Property" p
+      WHERE ${whereClause}
+    `;
+
+    const rows = await tx.$queryRaw<Record<string, unknown>[]>`
+      SELECT DISTINCT ON (p."id")
+        p."id",
+        p."propertyCode",
+        p."title",
+        p."slug",
+        LEFT(p."description", 200) AS "description",
+        p."transactionType",
+        p."propertyType",
+        p."propertyStatus",
+        p."city",
+        p."state",
+        p."pincode",
+        p."addressLine",
+        p."latitude",
+        p."longitude",
+        p."isFeatured",
+        p."isVerified",
+        p."viewsCount",
+        p."likesCount",
+        p."averageRating",
+        p."ratingCount",
+        p."createdAt",
+
+        -- Extract only featured image URL + total count (no full array transfer)
+        COALESCE(
+          (SELECT e->>'url' FROM jsonb_array_elements(p."images") e WHERE (e->>'isFeatured')::boolean = true LIMIT 1),
+          (SELECT e->>'url' FROM jsonb_array_elements(p."images") e LIMIT 1)
+        ) AS "featuredImageUrl",
+        jsonb_array_length(COALESCE(p."images", '[]'::jsonb)) AS "imagesCount",
+
+        ${distanceExpr},
+        ${rankExpr},
+        ${snippetExpr},
+
+        -- Seller info
+        sp."id" AS "sellerId",
+        sp."slug" AS "sellerSlug",
+        sp."referenceCode" AS "sellerReferenceCode",
+        sp."headline" AS "sellerHeadline",
+        sp."logoUrl" AS "sellerLogoUrl",
+        sp."sellerType" AS "sellerType",
+
+        -- Best matching active variant
+        pv."id" AS "variantId",
+        pv."variantName",
+        pv."bedrooms",
+        pv."bathrooms",
+        pv."price",
+        pv."mrpPrice",
+        pv."pricePerSqft",
+        pv."totalArea",
+        pv."totalAreaUnit",
+        pv."furnishingStatus",
+        pv."availabilityStatus"
+
+      FROM "Property" p
+      INNER JOIN "SellerProfile" sp ON sp."id" = p."sellerId"
+      INNER JOIN "PropertyVariant" pv ON pv."propertyId" = p."id" AND pv."isActive" = true
+      WHERE ${whereClause}
+      ORDER BY p."id", ${variantPriority} ASC, pv."price" ASC NULLS LAST
+      LIMIT ${take} OFFSET ${skip}
+    `;
+
+    return [count, rows] as const;
+  });
+
   const total = Number(countResult[0]?.count ?? 0);
-
-  // --- Execute main query ---
-  const properties = await prisma.$queryRaw<Record<string, unknown>[]>`
-    SELECT DISTINCT ON (p."id")
-      p."id",
-      p."propertyCode",
-      p."title",
-      p."slug",
-      LEFT(p."description", 200) AS "description",
-      p."transactionType",
-      p."propertyType",
-      p."propertyStatus",
-      p."city",
-      p."state",
-      p."pincode",
-      p."addressLine",
-      p."latitude",
-      p."longitude",
-      p."images",
-      p."isFeatured",
-      p."isVerified",
-      p."viewsCount",
-      p."likesCount",
-      p."averageRating",
-      p."ratingCount",
-      p."createdAt",
-
-      ${distanceExpr},
-      ${rankExpr},
-      ${snippetExpr},
-
-      -- Seller info
-      sp."id" AS "sellerId",
-      sp."slug" AS "sellerSlug",
-      sp."referenceCode" AS "sellerReferenceCode",
-      sp."headline" AS "sellerHeadline",
-      sp."logoUrl" AS "sellerLogoUrl",
-      sp."sellerType" AS "sellerType",
-
-      -- Cheapest active variant (for this property)
-      pv."id" AS "variantId",
-      pv."variantName",
-      pv."bedrooms",
-      pv."bathrooms",
-      pv."price",
-      pv."mrpPrice",
-      pv."pricePerSqft",
-      pv."totalArea",
-      pv."totalAreaUnit",
-      pv."furnishingStatus",
-      pv."availabilityStatus"
-
-    FROM "Property" p
-    INNER JOIN "SellerProfile" sp ON sp."id" = p."sellerId"
-    INNER JOIN "PropertyVariant" pv ON pv."propertyId" = p."id" AND pv."isActive" = true
-    WHERE ${whereClause}
-    ORDER BY p."id", ${variantPriority} ASC, pv."price" ASC NULLS LAST
-    LIMIT ${take} OFFSET ${skip}
-  `;
 
   // --- Format response ---
   const formattedData = properties.map((row) => {
-    const images = Array.isArray(row.images) ? row.images : [];
-    const featuredImage =
-      (images as { url: string; isFeatured?: boolean }[]).find((i) => i.isFeatured)?.url ??
-      (images as { url: string }[])[0]?.url ??
-      null;
-
     return {
       id: row.id,
       propertyCode: row.propertyCode,
@@ -326,7 +333,7 @@ const executeSearch = async (
       addressLine: row.addressLine,
       latitude: row.latitude,
       longitude: row.longitude,
-      featuredImage,
+      featuredImage: row.featuredImageUrl ?? null,
       isFeatured: row.isFeatured,
       isVerified: row.isVerified,
       viewsCount: row.viewsCount,
@@ -334,6 +341,7 @@ const executeSearch = async (
       averageRating: row.averageRating,
       ratingCount: row.ratingCount,
       createdAt: row.createdAt,
+      imagesCount: row.imagesCount ?? 0,
 
       distanceKm: row.distanceMeters != null
         ? Math.round((Number(row.distanceMeters) / 1000) * 100) / 100

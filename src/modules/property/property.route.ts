@@ -19,6 +19,8 @@ import {
   verifyProperty,
   togglePropertyActive,
 } from "./property.controller";
+import { toggleWishlist } from "../propertyWishlist/propertyWishlist.controller";
+import { getBrochure } from "./brochure.controller";
 import {
   protect,
   checkSeller,
@@ -66,9 +68,13 @@ router.post(
   uploadVariantImages
 );
 
+router.get("/:id/variants/:variantId/brochure", protect, getBrochure);
+
 router.get("/admin", protect, authorizePlatformRole("Super Admin", "Staff"), adminListProperties);
 router.patch("/:id/verify", protect, authorizePlatformRole("Super Admin", "Staff"), validate(verifyPropertySchema), verifyProperty);
 router.patch("/:id/toggle-active", protect, authorizePlatformRole("Super Admin", "Staff"), validate(toggleActiveSchema), togglePropertyActive);
+
+
 
 router.get("/:slug", getPublicProperty);
 
