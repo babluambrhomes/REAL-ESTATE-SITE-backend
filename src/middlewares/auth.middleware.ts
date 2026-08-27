@@ -48,8 +48,8 @@ const protect = async (
     const token =
       req.cookies?.accessToken || req.headers.authorization?.split(" ")[1];
 
-      console.log("Token from cookies:", req.cookies?.accessToken);
-      console.log("Token from headers:", req.headers.authorization?.split(" ")[1]);
+      // console.log("Token from cookies:", req.cookies?.accessToken);
+      // console.log("Token from headers:", req.headers.authorization?.split(" ")[1]);
 
     if (!token) {
       throw new ApiError(401, "Not authorized, please login");

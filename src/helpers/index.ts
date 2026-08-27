@@ -10,12 +10,8 @@ export {
   isRefreshTokenValid,
   getAccessCookieOptions,
   getRefreshCookieOptions,
-  generateResetToken,
-  verifyResetToken,
-  generateEmailVerificationToken,
-  verifyEmailVerificationToken,
-  generatePhoneVerificationToken,
-  verifyPhoneVerificationToken,
+  generatePurposeToken,
+  verifyPurposeToken,
 } from "./token.helper";
 
 export { hashPassword, comparePassword } from "./password.helper";

@@ -59,9 +59,8 @@ model Property {
 
   // --- Media ---
   // [{"url": "...", "isFeatured": true}, ...]
-  images         Json?   @default("[]") @db.JsonB
-  videoUrl       String? @map("video_url")
-  virtualTourUrl String? @map("virtual_tour_url")
+  images         Json?   @default("[]") @map("images") @db.JsonB
+  videos         Json @default("[]") @map("videos") @db.JsonB
 
   // --- Legal & Docs ---
   reraNumber         String? @map("rera_number")

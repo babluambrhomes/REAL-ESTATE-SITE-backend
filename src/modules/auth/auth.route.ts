@@ -2,7 +2,8 @@ import { Router } from "express";
 import {
   register,
   login,
-  verifyOtp,
+  publicOtpVerify,
+  privateOtpVerify,
   addContact,
   updatePassword,
   refreshToken,
@@ -15,6 +16,7 @@ import {
   registerSchema,
   loginSchema,
   verifyOtpSchema,
+  confirmOtpSchema,
   refreshTokenSchema,
   forgotPasswordRequestSchema,
   resetPasswordSchema,
@@ -26,7 +28,8 @@ const router = Router();
 
 router.post("/register", validate(registerSchema), register);
 router.post("/login", authRateLimit, validate(loginSchema), login);
-router.post("/verify-otp", otpRateLimit, validate(verifyOtpSchema), verifyOtp);
+router.post("/public-otp-verify", otpRateLimit, validate(verifyOtpSchema), publicOtpVerify);
+router.post("/private-otp-verify", protect, otpRateLimit, validate(confirmOtpSchema), privateOtpVerify);
 router.post("/refresh", validate(refreshTokenSchema), refreshToken);
 router.post("/forgot-password", otpRateLimit, validate(forgotPasswordRequestSchema), forgotPasswordRequest);
 router.post("/reset-password", validate(resetPasswordSchema), resetPassword);

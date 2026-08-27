@@ -22,10 +22,6 @@ export const propertyTypes = [
 export const propertyStatuses = [
   "AVAILABLE",
   "UNDER_OFFER",
-  "SOLD",
-  "RENTED",
-  "LEASED",
-  "WITHDRAWN",
 ] as const;
 
 export const furnishingStatuses = [

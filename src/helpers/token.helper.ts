@@ -6,13 +6,13 @@ import { ApiError } from "../utils";
 
 const generateAccessToken = (userId: string): string => {
   return jwt.sign({ id: userId }, process.env.JWT_SECRET as string, {
-    expiresIn: process.env.JWT_EXPIRE || "15m",
+    expiresIn: process.env.JWT_EXPIRE || "7d",
   } as jwt.SignOptions);
 };
 
 const generateRefreshToken = (userId: string): string => {
   return jwt.sign({ id: userId }, process.env.JWT_REFRESH_SECRET as string, {
-    expiresIn: process.env.JWT_REFRESH_EXPIRE || "7d",
+    expiresIn: process.env.JWT_REFRESH_EXPIRE || "15d",
   } as jwt.SignOptions);
 };
 
@@ -93,81 +93,29 @@ const getRefreshCookieOptions = () => ({
   maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
 });
 
-const generateResetToken = (userId: string): string => {
+const generatePurposeToken = (userId: string, purpose: string, expiresIn?: string): string => {
   return jwt.sign(
-    { id: userId, purpose: "password_reset" },
+    { id: userId, purpose },
     process.env.JWT_SECRET as string,
-    { expiresIn: "15m" } as jwt.SignOptions
+    { expiresIn: expiresIn || "15m" } as jwt.SignOptions
   );
 };
 
-const verifyResetToken = (token: string): { id: string; purpose: string } => {
+const verifyPurposeToken = (token: string, expectedPurpose: string): { id: string; purpose: string } => {
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET as string) as {
       id: string;
       purpose: string;
     };
 
-    if (decoded.purpose !== "password_reset") {
-      throw new ApiError(400, "Invalid reset token");
+    if (decoded.purpose !== expectedPurpose) {
+      throw new ApiError(400, "Invalid token");
     }
 
     return decoded;
   } catch (error) {
     if (error instanceof ApiError) throw error;
-    throw new ApiError(400, "Invalid or expired reset token");
-  }
-};
-
-const generateEmailVerificationToken = (userId: string): string => {
-  return jwt.sign(
-    { id: userId, purpose: "email_verification" },
-    process.env.JWT_SECRET as string,
-    { expiresIn: "5m" } as jwt.SignOptions
-  );
-};
-
-const verifyEmailVerificationToken = (token: string): { id: string; purpose: string } => {
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET as string) as {
-      id: string;
-      purpose: string;
-    };
-
-    if (decoded.purpose !== "email_verification") {
-      throw new ApiError(400, "Invalid verification token");
-    }
-
-    return decoded;
-  } catch (error) {
-    if (error instanceof ApiError) throw error;
-    throw new ApiError(400, "Invalid or expired verification token");
-  }
-};
-
-const generatePhoneVerificationToken = (userId: string): string => {
-  return jwt.sign(
-    { id: userId, purpose: "phone_verification" },
-    process.env.JWT_SECRET as string,
-    { expiresIn: "5m" } as jwt.SignOptions
-  );
-};
-
-const verifyPhoneVerificationToken = (token: string): { id: string; purpose: string } => {
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET as string) as {
-      id: string;
-      purpose: string;
-    };
-
-    if (decoded.purpose !== "phone_verification") {
-      throw new ApiError(400, "Invalid verification token");
-    }
-
-    return decoded;
-  } catch (error) {
-    if (error instanceof ApiError) throw error;
-    throw new ApiError(400, "Invalid or expired verification token");
+    throw new ApiError(400, "Invalid or expired token");
   }
 };
 
@@ -183,10 +131,6 @@ export {
   isRefreshTokenValid,
   getAccessCookieOptions,
   getRefreshCookieOptions,
-  generateResetToken,
-  verifyResetToken,
-  generateEmailVerificationToken,
-  verifyEmailVerificationToken,
-  generatePhoneVerificationToken,
-  verifyPhoneVerificationToken,
+  generatePurposeToken,
+  verifyPurposeToken,
 };

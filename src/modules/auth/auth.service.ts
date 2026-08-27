@@ -4,6 +4,7 @@ import {
   RegisterInput,
   LoginInput,
   VerifyOtpInput,
+  ConfirmOtpInput,
   ForgotPasswordRequestInput,
   ResetPasswordInput,
   AddContactInput,
@@ -14,8 +15,8 @@ import {
   comparePassword,
   createOtp,
   verifyOtp as verifyOtpHelper,
-  generateResetToken,
-  verifyResetToken,
+  generatePurposeToken,
+  verifyPurposeToken,
   generateTokenPair,
   storeRefreshToken,
   revokeRefreshToken,
@@ -280,18 +281,30 @@ const login = async (data: LoginInput, userAgent?: string, ipAddress?: string) =
   throw new ApiError(400, "Invalid login credentials");
 };
 
-const verifyOtp = async (data: VerifyOtpInput, userAgent?: string, ipAddress?: string) => {
+const publicOtpVerify = async (data: VerifyOtpInput) => {
   const { identifier, code, purpose } = data;
 
   const result = await verifyOtpHelper({ identifier, code, purpose: purpose as OtpPurpose });
   if (!result.valid) throw new ApiError(400, result.message);
 
-  if (purpose === "EMAIL_VERIFICATION") {
-    const user = await prisma.user.findFirst({ where: { email: identifier } });
-    if (!user) throw new ApiError(404, "User not found");
+  return { message: "OTP verified successfully" };
+};
 
+const privateOtpVerify = async (userId: string, data: ConfirmOtpInput, userAgent?: string, ipAddress?: string) => {
+  const { code, purpose } = data;
+
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) throw new ApiError(404, "User not found");
+
+  const identifier = purpose === "EMAIL_VERIFICATION" ? user.email : user.phone;
+  if (!identifier) throw new ApiError(400, "No identifier found for this user");
+
+  const result = await verifyOtpHelper({ identifier, code, purpose: purpose as OtpPurpose });
+  if (!result.valid) throw new ApiError(400, result.message);
+
+  if (purpose === "EMAIL_VERIFICATION") {
     const updatedUser = await prisma.user.update({
-      where: { id: user.id },
+      where: { id: userId },
       data: { emailVerified: true },
     });
 
@@ -300,14 +313,11 @@ const verifyOtp = async (data: VerifyOtpInput, userAgent?: string, ipAddress?: s
   }
 
   if (purpose === "PHONE_VERIFICATION") {
-    const user = await prisma.user.findFirst({ where: { phone: identifier } });
-    if (!user) throw new ApiError(404, "User not found");
-
     const updateData: any = { phoneVerified: true };
     if (user.status === "PENDING") {
       updateData.status = "ACTIVE";
     }
-    const updatedUser = await prisma.user.update({ where: { id: user.id }, data: updateData });
+    const updatedUser = await prisma.user.update({ where: { id: userId }, data: updateData });
 
     if (updateData.status === "ACTIVE" && user.email) {
       const person = await prisma.person.findUnique({ where: { userId: user.id }, select: { firstName: true } });
@@ -320,7 +330,7 @@ const verifyOtp = async (data: VerifyOtpInput, userAgent?: string, ipAddress?: s
     return { message: "Phone verified successfully", ...tokens };
   }
 
-  return { message: "OTP verified successfully" };
+  throw new ApiError(400, "Invalid purpose");
 };
 
 const addContact = async (userId: string, data: AddContactInput) => {
@@ -402,7 +412,7 @@ const forgotPasswordRequest = async (data: ForgotPasswordRequestInput) => {
   const user = await prisma.user.findUnique({ where: { email } });
 
   if (user && user.status === "ACTIVE" && user.hasPassword && user.hasPassword !== "GOOGLE_AUTH") {
-    const resetToken = generateResetToken(user.id);
+    const resetToken = generatePurposeToken(user.id, "password_reset", "15d");
     const clientUrl = process.env.CLIENT_URL || "http://localhost:3000";
     const resetLink = `${clientUrl}/reset-password?token=${resetToken}`;
 
@@ -419,7 +429,7 @@ const forgotPasswordRequest = async (data: ForgotPasswordRequestInput) => {
 const resetPassword = async (data: ResetPasswordInput) => {
   const { token, newPassword } = data;
 
-  const decoded = verifyResetToken(token);
+  const decoded = verifyPurposeToken(token, "password_reset");
 
   const user = await prisma.user.findUnique({ where: { id: decoded.id } });
   if (!user) throw new ApiError(404, "User not found");
@@ -458,7 +468,8 @@ const updatePassword = async (userId: string, data: UpdatePasswordInput) => {
 export {
   register,
   login,
-  verifyOtp,
+  publicOtpVerify,
+  privateOtpVerify,
   addContact,
   updatePassword,
   refreshAccessToken,

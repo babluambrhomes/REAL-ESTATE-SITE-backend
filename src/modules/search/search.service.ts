@@ -78,12 +78,13 @@ const executeSearch = async (
   // Base filters (always active)
   conditions.push(Prisma.sql`p."isActive" = true`);
   conditions.push(Prisma.sql`p."deletedAt" IS NULL`);
-  conditions.push(Prisma.sql`p."propertyStatus" NOT IN ('DRAFT', 'WITHDRAWN')`);
+  // Public search only exposes available / under-offer listings
+  conditions.push(Prisma.sql`p."propertyStatus" IN ('AVAILABLE', 'UNDER_OFFER')`);
 
   // --- Text search via tsvector ---
   if (safeHasText) {
     conditions.push(
-      Prisma.sql`p."search_vector" @@ websearch_to_tsquery('english', ${sanitizedQ})`
+      Prisma.sql`p."searchVector" @@ websearch_to_tsquery('english', ${sanitizedQ})`
     );
   }
 
@@ -133,10 +134,10 @@ const executeSearch = async (
   if (query.listedBy) {
     conditions.push(Prisma.sql`p."listedBy" = ${query.listedBy}`);
   }
-  if (query.isFeatured) {
+  if (query.isFeatured !== undefined) {
     conditions.push(Prisma.sql`p."isFeatured" = ${query.isFeatured === "true"}`);
   }
-  if (query.isVerified) {
+  if (query.isVerified !== undefined) {
     conditions.push(Prisma.sql`p."isVerified" = ${query.isVerified === "true"}`);
   }
   if (query.sellerSlug) {
@@ -148,8 +149,8 @@ const executeSearch = async (
     );
   }
 
-  // --- Combined EXISTS for ALL variant filters (1 scan instead of 6) ---
-  const variantConditions: Prisma.Sql[] = [];
+  // --- Variant filters (used by LATERAL selection AND count EXISTS) ---
+  const variantConditions: Prisma.Sql[] = [Prisma.sql`pv."isActive" = true`];
 
   if (query.minPrice !== undefined) {
     variantConditions.push(Prisma.sql`pv."price" >= ${query.minPrice}`);
@@ -171,29 +172,10 @@ const executeSearch = async (
     variantConditions.push(Prisma.sql`pv."availabilityStatus" = ${query.availabilityStatus}`);
   }
 
-  if (variantConditions.length > 0) {
-    const variantWhere = Prisma.join(variantConditions, " AND ");
-    conditions.push(
-      Prisma.sql`EXISTS (
-        SELECT 1 FROM "PropertyVariant" pv
-        WHERE pv."propertyId" = p."id" AND pv."isActive" = true
-        AND ${variantWhere}
-      )`
-    );
-  }
+  const variantWhere = Prisma.join(variantConditions, " AND ");
 
-  // --- Combine all conditions ---
+  // --- Combine all property-level conditions ---
   const whereClause = Prisma.join(conditions, " AND ");
-
-  // --- Variant priority for ORDER BY (matching variant first, then cheapest) ---
-  const resolvedBhk = query.bhk !== undefined ? Number(query.bhk) : query.bedrooms;
-  let variantPriority: Prisma.Sql;
-
-  if (resolvedBhk !== undefined && !isNaN(resolvedBhk) && Number.isInteger(resolvedBhk)) {
-    variantPriority = Prisma.sql`(CASE WHEN pv."bedrooms" = ${resolvedBhk} THEN 0 ELSE 1 END)`;
-  } else {
-    variantPriority = Prisma.sql`0`;
-  }
 
   // --- Build SELECT columns ---
   const distanceExpr = hasLocation
@@ -201,14 +183,14 @@ const executeSearch = async (
     : Prisma.sql`NULL::float8 AS "distanceMeters"`;
 
   const rankExpr = safeHasText
-    ? Prisma.sql`ts_rank(p."search_vector", websearch_to_tsquery('english', ${sanitizedQ}), 1)::float8 AS "textRank"`
+    ? Prisma.sql`ts_rank(p."searchVector", websearch_to_tsquery('english', ${sanitizedQ}), 1)::float8 AS "textRank"`
     : Prisma.sql`NULL::float8 AS "textRank"`;
 
   const snippetExpr = safeHasText
     ? Prisma.sql`ts_headline('english', coalesce(p."description", ''), websearch_to_tsquery('english', ${sanitizedQ}), 'StartSel=<mark>, StopSel=</mark>, MaxWords=35, MinWords=10') AS "snippet"`
     : Prisma.sql`NULL::text AS "snippet"`;
 
-  // --- Build ORDER BY ---
+  // --- Build ORDER BY (genuine outer sort on the LATERAL-selected variant) ---
   let orderBy: Prisma.Sql;
   const sort = query.sort || (safeHasText ? "relevance" : hasLocation ? "distance" : "newest");
 
@@ -224,10 +206,10 @@ const executeSearch = async (
         : Prisma.sql`p."createdAt" DESC`;
       break;
     case "price_asc":
-      orderBy = Prisma.sql`(SELECT MIN(pv2."price") FROM "PropertyVariant" pv2 WHERE pv2."propertyId" = p."id" AND pv2."isActive" = true) ASC NULLS LAST`;
+      orderBy = Prisma.sql`pv."price" ASC NULLS LAST, p."createdAt" DESC`;
       break;
     case "price_desc":
-      orderBy = Prisma.sql`(SELECT MIN(pv2."price") FROM "PropertyVariant" pv2 WHERE pv2."propertyId" = p."id" AND pv2."isActive" = true) DESC NULLS LAST`;
+      orderBy = Prisma.sql`pv."price" DESC NULLS LAST, p."createdAt" DESC`;
       break;
     case "popular":
       orderBy = Prisma.sql`p."viewsCount" DESC, p."likesCount" DESC`;
@@ -237,18 +219,23 @@ const executeSearch = async (
   }
 
   // --- Execute queries inside transaction with timeout protection ---
-  const [countResult, properties] = await prisma.$transaction(async (tx) => {
+  const [countResult, rows] = await prisma.$transaction(async (tx) => {
     // 5 second query timeout — prevents long-running distance/text searches
     await tx.$executeRaw`SET LOCAL statement_timeout = '5000'`;
 
     const count = await tx.$queryRaw<{ count: bigint }[]>`
-      SELECT COUNT(DISTINCT p."id")::bigint AS count
+      SELECT COUNT(p."id")::bigint AS count
       FROM "Property" p
       WHERE ${whereClause}
+        AND EXISTS (
+          SELECT 1 FROM "PropertyVariant" pv
+          WHERE pv."propertyId" = p."id"
+          AND ${variantWhere}
+        )
     `;
 
-    const rows = await tx.$queryRaw<Record<string, unknown>[]>`
-      SELECT DISTINCT ON (p."id")
+    const resultRows = await tx.$queryRaw<Record<string, unknown>[]>`
+      SELECT
         p."id",
         p."propertyCode",
         p."title",
@@ -290,7 +277,7 @@ const executeSearch = async (
         sp."logoUrl" AS "sellerLogoUrl",
         sp."sellerType" AS "sellerType",
 
-        -- Best matching active variant
+        -- Best matching variant (LATERAL picks 1 per property)
         pv."id" AS "variantId",
         pv."variantName",
         pv."bedrooms",
@@ -305,19 +292,37 @@ const executeSearch = async (
 
       FROM "Property" p
       INNER JOIN "SellerProfile" sp ON sp."id" = p."sellerId"
-      INNER JOIN "PropertyVariant" pv ON pv."propertyId" = p."id" AND pv."isActive" = true
+      INNER JOIN LATERAL (
+        SELECT
+          pv."id",
+          pv."variantName",
+          pv."bedrooms",
+          pv."bathrooms",
+          pv."price",
+          pv."mrpPrice",
+          pv."pricePerSqft",
+          pv."totalArea",
+          pv."totalAreaUnit",
+          pv."furnishingStatus",
+          pv."availabilityStatus"
+        FROM "PropertyVariant" pv
+        WHERE pv."propertyId" = p."id"
+          AND ${variantWhere}
+        ORDER BY pv."price" ASC NULLS LAST
+        LIMIT 1
+      ) pv ON true
       WHERE ${whereClause}
-      ORDER BY p."id", ${variantPriority} ASC, pv."price" ASC NULLS LAST
+      ORDER BY ${orderBy}
       LIMIT ${take} OFFSET ${skip}
     `;
 
-    return [count, rows] as const;
+    return [count, resultRows] as const;
   });
 
   const total = Number(countResult[0]?.count ?? 0);
 
   // --- Format response ---
-  const formattedData = properties.map((row) => {
+  const formattedData = rows.map((row) => {
     return {
       id: row.id,
       propertyCode: row.propertyCode,
@@ -388,7 +393,4 @@ const executeSearch = async (
   };
 };
 
-// ============================================================
-// Export
-// ============================================================
 export { searchProperties };

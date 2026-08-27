@@ -38,14 +38,12 @@ export const loginSchema = z.object({
 export const verifyOtpSchema = z.object({
   identifier: z.string().min(1, "Email or phone is required"),
   code: z.string().length(6, "OTP must be 6 digits"),
-  purpose: z.enum([
-    "EMAIL_VERIFICATION",
-    "PHONE_VERIFICATION",
-    "PASSWORD_RESET",
-    "LOGIN_2FA",
-    "LOGIN_PASSWORDLESS",
-    "ACCOUNT_DELETION",
-  ]),
+  purpose: z.enum(["PASSWORD_RESET"]),
+});
+
+export const confirmOtpSchema = z.object({
+  code: z.string().length(6, "OTP must be 6 digits"),
+  purpose: z.enum(["EMAIL_VERIFICATION", "PHONE_VERIFICATION"]),
 });
 
 export const refreshTokenSchema = z.object({
@@ -74,6 +72,7 @@ export const updatePasswordSchema = z.object({
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
 export type VerifyOtpInput = z.infer<typeof verifyOtpSchema>;
+export type ConfirmOtpInput = z.infer<typeof confirmOtpSchema>;
 export type RefreshTokenInput = z.infer<typeof refreshTokenSchema>;
 export type ForgotPasswordRequestInput = z.infer<typeof forgotPasswordRequestSchema>;
 export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;

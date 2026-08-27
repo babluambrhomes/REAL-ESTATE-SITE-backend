@@ -6,6 +6,7 @@ import {
   LoginInput,
   RefreshTokenInput,
   VerifyOtpInput,
+  ConfirmOtpInput,
   ForgotPasswordRequestInput,
   ResetPasswordInput,
   AddContactInput,
@@ -50,11 +51,16 @@ const login = asyncHandler(async (req: AuthRequest, res: Response) => {
   );
 });
 
-const verifyOtp = asyncHandler(async (req: AuthRequest, res: Response) => {
+const publicOtpVerify = asyncHandler(async (req: AuthRequest, res: Response) => {
+  const result = await authService.publicOtpVerify(req.body as VerifyOtpInput);
+  res.status(200).json(new ApiResponse(200, null, result.message));
+});
+
+const privateOtpVerify = asyncHandler(async (req: AuthRequest, res: Response) => {
   const userAgent = req.headers["user-agent"];
   const ipAddress = req.ip;
 
-  const result = await authService.verifyOtp(req.body as VerifyOtpInput, userAgent, ipAddress) as any;
+  const result = await authService.privateOtpVerify(req.user!.id, req.body as ConfirmOtpInput, userAgent, ipAddress) as any;
 
   if (result.accessToken && result.refreshToken) {
     res.cookie("accessToken", result.accessToken, getAccessCookieOptions());
@@ -121,7 +127,8 @@ const updatePassword = asyncHandler(async (req: AuthRequest, res: Response) => {
 export {
   register,
   login,
-  verifyOtp,
+  publicOtpVerify,
+  privateOtpVerify,
   addContact,
   updatePassword,
   refreshToken,

@@ -7,14 +7,6 @@ const userSelect = {
   email: true,
   phone: true,
   phoneVerified: true,
-  userType: true,
-  platformStaff: {
-    select: {
-      role: true,
-      department: true,
-      designation: true,
-    },
-  },
   status: true,
   emailVerified: true,
   createdAt: true,
@@ -30,11 +22,9 @@ const getProfile = async (userId: string) => {
         select: {
           id: true,
           firstName: true,
-          middleName: true,
           lastName: true,
-          displayName: true,
           gender: true,
-          avatar: true,
+          avatarUrl: true,
           city: true,
           state: true,
           country: true,
@@ -51,13 +41,13 @@ const getProfile = async (userId: string) => {
 };
 
 const updateProfile = async (userId: string, data: UpdateUserInput) => {
-  const user = await prisma.user.update({
-    where: { id: userId },
-    data,
-    select: userSelect,
+  const person = await prisma.person.upsert({
+    where: { userId },
+    create: { userId, firstName: data.firstName || "User", lastName: data.lastName || "" },
+    update: data,
   });
 
-  return user;
+  return person;
 };
 
 const getAllUsers = async (page = 1, limit = 10) => {
