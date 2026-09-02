@@ -1,6 +1,6 @@
 import { Prisma } from "../../generated/prisma/client";
 import prisma from "../../config/prisma";
-import { getPaginationParams, buildPaginatedResponse, buildCacheKey, withCache, getCacheVersion } from "../../helpers";
+import { getPaginationParams, buildPagination, buildCacheKey, withCache, getCacheVersion } from "../../helpers";
 import { SearchQueryInput } from "./search.validation";
 import type { SearchResponse, SearchMeta } from "./search.types";
 
@@ -10,13 +10,16 @@ import type { SearchResponse, SearchMeta } from "./search.types";
 
 const sanitizeSearchQuery = (q: string): string => {
   return q
-    .replace(/[!|&():*"'\[\]\\]/g, " ")
+       .replace(/[!|&():*"'[\]\\]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
 };
 
 const escapeLikeWildcard = (input: string): string => {
-  return input.replace(/%/g, "\\%").replace(/_/g, "\\_");
+   return input
+    .replace(/\\/g, "\\\\")
+    .replace(/%/g, "\\%")
+    .replace(/_/g, "\\_");
 };
 
 interface BoundingBox {
@@ -388,7 +391,8 @@ const executeSearch = async (
   };
 
   return {
-    ...buildPaginatedResponse(formattedData, total, page, limit),
+    data: formattedData,
+    ...buildPagination(total, page, limit),
     searchMeta,
   };
 };

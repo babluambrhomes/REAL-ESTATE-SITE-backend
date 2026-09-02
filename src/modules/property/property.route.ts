@@ -24,6 +24,7 @@ import { getBrochure } from "./brochure.controller";
 import {
   protect,
   checkSeller,
+  checkSellerVerified,
   authorizePlatformRole,
   validate,
   upload,
@@ -47,23 +48,23 @@ router.get("/", listProperties);
 router.get("/my", protect, checkSeller, getMyProperties);
 router.get("/my/:id", protect, checkSeller, getMyProperty);
 
-router.post("/", protect, checkSeller, validate(createPropertySchema), createProperty);
+router.post("/", protect, checkSellerVerified, validate(createPropertySchema), createProperty);
 
-router.patch("/:id", protect, checkSeller, validate(updatePropertySchema), updateProperty);
-router.patch("/:id/status", protect, checkSeller, validate(updatePropertyStatusSchema), updatePropertyStatus);
-router.delete("/:id", protect, checkSeller, deleteProperty);
+router.patch("/:id", protect, checkSellerVerified, validate(updatePropertySchema), updateProperty);
+router.patch("/:id/status", protect, checkSellerVerified, validate(updatePropertyStatusSchema), updatePropertyStatus);
+router.delete("/:id", protect, checkSellerVerified, deleteProperty);
 
-router.post("/:id/images", protect, checkSeller, upload.array("images", 10), uploadImages);
-router.put("/:id/images", protect, checkSeller, validate(setImagesSchema), setImages);
-router.delete("/:id/images", protect, checkSeller, validate(removeImageSchema), removeImages);
+router.post("/:id/images", protect, checkSellerVerified, upload.array("images", 10), uploadImages);
+router.put("/:id/images", protect, checkSellerVerified, validate(setImagesSchema), setImages);
+router.delete("/:id/images", protect, checkSellerVerified, validate(removeImageSchema), removeImages);
 
-router.post("/:id/variants", protect, checkSeller, validate(createVariantSchema), addVariant);
-router.patch("/:id/variants/:variantId", protect, checkSeller, validate(updateVariantSchema), updateVariant);
-router.delete("/:id/variants/:variantId", protect, checkSeller, deleteVariant);
+router.post("/:id/variants", protect, checkSellerVerified, validate(createVariantSchema), addVariant);
+router.patch("/:id/variants/:variantId", protect, checkSellerVerified, validate(updateVariantSchema), updateVariant);
+router.delete("/:id/variants/:variantId", protect, checkSellerVerified, deleteVariant);
 router.post(
   "/:id/variants/:variantId/images",
   protect,
-  checkSeller,
+  checkSellerVerified,
   upload.array("images", 10),
   uploadVariantImages
 );

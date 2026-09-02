@@ -22,8 +22,80 @@ const generateTokenPair = (userId: string) => {
   return { accessToken, refreshToken };
 };
 
-const verifyAccessToken = (token: string) => {
-  return jwt.verify(token, process.env.JWT_SECRET as string) as { id: string };
+
+const JWT_SECRET = process.env.JWT_SECRET;
+
+// ✅ Validate secret exists at startup
+if (!JWT_SECRET) {
+  throw new Error('JWT_SECRET is not defined in environment variables');
+}
+
+ const verifyAccessToken = (token: string): { id: string } => {
+  try {
+    let cleanToken = token;
+    cleanToken = cleanToken.trim();
+    cleanToken = cleanToken.replace(/^["']|["']$/g, '');
+    cleanToken = cleanToken.replace(/\n/g, '');
+    if (!cleanToken || cleanToken.length === 0) {
+      throw new ApiError(401, 'Token is empty');
+    }
+    const parts = cleanToken.split('.');
+    if (parts.length !== 3) {
+      console.error('Invalid token parts:', parts.length);
+      throw new ApiError(401, 'Invalid token format');
+    }
+    if (!parts[0] || !parts[1] || !parts[2]) {
+      console.error('Token has empty parts');
+      throw new ApiError(401, 'Malformed token');
+    }
+  
+    const decoded = jwt.verify(cleanToken, JWT_SECRET, {
+      algorithms: ['HS256'],  
+    });
+    
+    if (!decoded || typeof decoded !== 'object' || !('id' in decoded)) {
+      console.error('Token missing id field');
+      throw new ApiError(401, 'Invalid token payload');
+    }
+    
+    return decoded as { id: string };
+    
+  } catch (error: any) {
+    console.error('JWT Verification Error:', {
+      name: error.name,
+      message: error.message,
+      tokenPreview: token?.substring(0, 20) + '...'
+    });
+    
+    // Handle specific JWT errors
+    if (error.name === 'JsonWebTokenError') {
+      if (error.message.includes('malformed')) {
+        throw new ApiError(401, 'Malformed token. Please login again.');
+      }
+      if (error.message.includes('signature')) {
+        throw new ApiError(401, 'Invalid token signature. Token may be tampered.');
+      }
+      if (error.message.includes('invalid algorithm')) {
+        throw new ApiError(401, 'Invalid token algorithm.');
+      }
+      throw new ApiError(401, 'Invalid token');
+    }
+    
+    if (error.name === 'TokenExpiredError') {
+      throw new ApiError(401, 'Token has expired. Please login again.');
+    }
+    
+    if (error.name === 'NotBeforeError') {
+      throw new ApiError(401, 'Token is not active yet.');
+    }
+  
+    if (error instanceof ApiError) {
+      throw error;
+    }
+    
+    // Unknown error
+    throw new ApiError(401, 'Authentication failed');
+  }
 };
 
 const verifyRefreshToken = (token: string) => {

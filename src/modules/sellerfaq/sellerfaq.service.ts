@@ -1,6 +1,6 @@
 import prisma from "../../config/prisma";
 import { ApiError } from "../../utils";
-import { getPaginationParams, buildPaginatedResponse, isRecordNotFound } from "../../helpers";
+import { getPaginationParams, buildPagination, isRecordNotFound } from "../../helpers";
 import { CreateFaqInput, UpdateFaqInput } from "./sellerfaq.validation";
 
 const faqSelect = {
@@ -28,7 +28,10 @@ const listFaqs = async (sellerId: string, page: number, limit: number) => {
     prisma.sellerFaq.count({ where: { sellerId } }),
   ]);
 
-  return buildPaginatedResponse(faqs, total, p, l);
+  return {
+    data: faqs,
+    ...buildPagination(total, p, l),
+  };
 };
 
 const getFaq = async (sellerId: string, id: string) => {

@@ -3,8 +3,9 @@ import fs from "fs/promises";
 import slugify from "slugify";
 import prisma from "../../config/prisma";
 import { ApiError } from "../../utils";
-import { getPaginationParams, buildPaginatedResponse, generateTimestampSuffix, isUniqueViolation, withUniqueRetry } from "../../helpers";
+import { getPaginationParams, buildPagination, generateTimestampSuffix, isUniqueViolation, withUniqueRetry } from "../../helpers";
 import { processImage } from "../../workers/image/imageWorker.pool";
+import { uploadFile, deleteCloudinaryFile, isCloudinaryUrl } from "../../helpers/cloudinary.helper";
 import { PropertyStatus } from "../../generated/prisma/enums";
 import { Prisma } from "../../generated/prisma/client";
 import {
@@ -78,8 +79,7 @@ const propertyDetailSelect: Prisma.PropertySelect = {
   amenities: true,
   nearbyPlaces: true,
   societyInfo: true,
-  videoUrl: true,
-  virtualTourUrl: true,
+  videos: true,
   reraNumber: true,
   registrationNumber: true,
   taxAssessment: true,
@@ -253,12 +253,19 @@ const processPropertyImages = async (files: Express.Multer.File[]) => {
       throw new ApiError(500, result.error || "Image processing failed");
     }
 
-    const relPath = path
-      .relative(parsed.dir, result.outputs[0])
-      .split(path.sep)
-      .join("/");
+    // --- CLOUDINARY (new) ---
+    const uploaded = await uploadFile(result.outputs[0], {
+      folder: `${process.env.CLOUDINARY_FOLDER || "real-estate"}/properties/images`,
+      resourceType: "image",
+    });
+    urls.push(uploaded.url);
 
-    urls.push(`/uploads/${relPath}`);
+    // --- LOCAL (old) -- keep for reference ---
+    // const relPath = path
+    //   .relative(parsed.dir, result.outputs[0])
+    //   .split(path.sep)
+    //   .join("/");
+    // urls.push(`/uploads/${relPath}`);
   }
 
   return urls;
@@ -272,18 +279,47 @@ const createProperty = async (
 
   const { variants, ...propertyData } = data;
 
+  // ✅ Build create data explicitly
+  const createData = {
+    title: propertyData.title,
+    description: propertyData.description,
+    transactionType: propertyData.transactionType,
+    propertyType: propertyData.propertyType || 'APARTMENT', // ✅ Force set
+    propertyStatus: propertyData.propertyStatus || 'AVAILABLE',
+    addressLine: propertyData.addressLine,
+    city: propertyData.city,
+    state: propertyData.state,
+    country: propertyData.country,
+    pincode: propertyData.pincode,
+    latitude: propertyData.latitude,
+    longitude: propertyData.longitude,
+    googleMapLink: propertyData.googleMapLink,
+    ownershipType: propertyData.ownershipType,
+    listedBy: propertyData.listedBy,
+    ageOfProperty: propertyData.ageOfProperty,
+    reraNumber: propertyData.reraNumber,
+    registrationNumber: propertyData.registrationNumber,
+    taxAssessment: propertyData.taxAssessment,
+    encumbrance: propertyData.encumbrance,
+    contactName: propertyData.contactName,
+    contactPhone: propertyData.contactPhone,
+    contactEmail: propertyData.contactEmail,
+    metaTitle: propertyData.metaTitle,
+    metaDescription: propertyData.metaDescription,
+    metaKeywords: propertyData.metaKeywords,
+    propertyCode: generatePropertyCode(),
+    slug: generateUniqueSlug(propertyData.title),
+    sellerId,
+    amenities: propertyData.amenities ?? [],
+    nearbyPlaces: propertyData.nearbyPlaces ?? [],
+    societyInfo: propertyData.societyInfo ?? {},
+  };
+  
+
   return withUniqueRetry(() =>
     prisma.$transaction(async (tx) => {
       const property = await tx.property.create({
-        data: {
-          ...propertyData,
-          propertyCode: generatePropertyCode(),
-          slug: generateUniqueSlug(propertyData.title),
-          sellerId,
-          amenities: propertyData.amenities ?? [],
-          nearbyPlaces: propertyData.nearbyPlaces ?? [],
-          societyInfo: propertyData.societyInfo ?? {},
-        },
+        data: createData, // ✅ Use the explicit object
         select: { id: true },
       });
 
@@ -325,7 +361,16 @@ const listPublicProperties = async (query: ListQueryInput) => {
 
   if (query.transactionType) where.transactionType = query.transactionType;
   if (query.propertyType) where.propertyType = query.propertyType;
-  if (query.propertyStatus) where.propertyStatus = query.propertyStatus;
+  if (query.propertyStatus) {
+    // DRAFT/WITHDRAWN kabhi public listing me nahi dikhne chahiye —
+    // default NOT IN override hone se rokte hain.
+    if (
+      query.propertyStatus !== PropertyStatus.DRAFT &&
+      query.propertyStatus !== PropertyStatus.WITHDRAWN
+    ) {
+      where.propertyStatus = query.propertyStatus;
+    }
+  }
   if (query.city) where.city = { equals: query.city, mode: "insensitive" };
   if (query.state) where.state = { equals: query.state, mode: "insensitive" };
   if (query.pincode) where.pincode = { contains: query.pincode };
@@ -333,6 +378,9 @@ const listPublicProperties = async (query: ListQueryInput) => {
   if (query.q) where.title = { contains: query.q, mode: "insensitive" };
   if (query.sellerSlug) where.seller = { slug: query.sellerSlug };
   if (Object.keys(variantFilter).length > 0) {
+    // Variant filter sirf ACTIVE variants pe lagna chahiye — warna inactive
+    // variant filter-eligible property la dega (sort MIN(price) se mismatch).
+    variantFilter.isActive = true;
     where.variants = { some: variantFilter };
   }
 
@@ -341,15 +389,127 @@ const listPublicProperties = async (query: ListQueryInput) => {
   };
 
   switch (query.sort) {
-    case "price_asc":
-      orderBy = { variants: { _min: { price: "asc" } } };
-      break;
-    case "price_desc":
-      orderBy = { variants: { _min: { price: "desc" } } };
-      break;
+    // --- OLD (comment): Prisma to-many relation orderBy me sirf `_count` hota hai,
+    // `_min`/`_max` support nahi -> PrismaClientValidationError.
+    // case "price_asc":
+    //   orderBy = { variants: { _min: { price: "asc" } } };
+    //   break;
+    // case "price_desc":
+    //   orderBy = { variants: { _min: { price: "desc" } } };
+    //   break;
     case "popular":
       orderBy = [{ viewsCount: "desc" }, { createdAt: "desc" }];
       break;
+  }
+
+  // --- RAW PRICE SORT (new) ---
+  // Prisma relation orderBy me min price sort nahi ho sakta (sirf _count),
+  // isliye price_asc/price_desc ke liye raw SQL use hota hai —
+  // same filters + pagination, MIN(active variant price) se order.
+  if (query.sort === "price_asc" || query.sort === "price_desc") {
+    const direction = query.sort === "price_asc" ? "ASC" : "DESC";
+
+    const clauses: string[] = [
+      'p."deleted_at" IS NULL',
+      'p."is_active" = true',
+      "p.\"property_status\" NOT IN ('DRAFT', 'WITHDRAWN')",
+    ];
+    const params: unknown[] = [];
+
+    const add = (sql: (n: number) => string, value: unknown) => {
+      if (value !== undefined && value !== null) {
+        params.push(value);
+        clauses.push(sql(params.length));
+      }
+    };
+
+    add((n) => `p."transaction_type" = $${n}`, query.transactionType);
+    add((n) => `p."property_type" = $${n}`, query.propertyType);
+    add(
+      (n) => `p."property_status" = $${n}`,
+      query.propertyStatus &&
+        query.propertyStatus !== PropertyStatus.DRAFT &&
+        query.propertyStatus !== PropertyStatus.WITHDRAWN
+        ? query.propertyStatus
+        : null
+    );
+    add((n) => `p."city" ILIKE $${n}`, query.city);
+    add((n) => `p."state" ILIKE $${n}`, query.state);
+    add((n) => `p."pincode" LIKE '%' || $${n} || '%'`, query.pincode);
+    add(
+      (n) => `p."is_featured" = $${n}`,
+      query.isFeatured === undefined ? null : query.isFeatured === "true"
+    );
+    add((n) => `p."title" ILIKE '%' || $${n} || '%'`, query.q);
+    add(
+      (n) =>
+        `EXISTS (SELECT 1 FROM "seller_profiles" sp WHERE sp."id" = p."seller_id" AND sp."slug" = $${n})`,
+      query.sellerSlug
+    );
+
+    const variantClauses: string[] = [];
+    const addVariant = (sql: (n: number) => string, value: unknown) => {
+      if (value !== undefined && value !== null) {
+        params.push(value);
+        variantClauses.push(sql(params.length));
+      }
+    };
+
+    addVariant((n) => `vv."price" >= $${n}`, query.minPrice);
+    addVariant((n) => `vv."price" <= $${n}`, query.maxPrice);
+    addVariant((n) => `vv."bedrooms" = $${n}`, query.bedrooms);
+    addVariant((n) => `vv."furnishing_status" = $${n}`, query.furnishingStatus);
+    addVariant((n) => `vv."construction_status" = $${n}`, query.availabilityStatus);
+
+    if (variantClauses.length > 0) {
+      clauses.push(
+        `EXISTS (SELECT 1 FROM "property_variants" vv WHERE vv."property_id" = p."id" AND vv."is_active" = true AND ${variantClauses.join(
+          " AND "
+        )})`
+      );
+    }
+
+    const takeIndex = params.length + 1;
+    const skipIndex = params.length + 2;
+    params.push(take, skip);
+
+    const rows = await prisma.$queryRawUnsafe<{ id: string }[]>(
+      `
+      SELECT p."id"
+      FROM "properties" p
+      LEFT JOIN "property_variants" v
+        ON v."property_id" = p."id" AND v."is_active" = true
+      WHERE ${clauses.join(" AND ")}
+      GROUP BY p."id"
+      ORDER BY MIN(v."price") ${direction} NULLS LAST, p."created_at" DESC
+      LIMIT $${takeIndex} OFFSET $${skipIndex};
+      `,
+      ...params
+    );
+
+    const orderedIds = rows.map((r) => r.id);
+
+    const [matched, total] = await Promise.all([
+      orderedIds.length > 0
+        ? prisma.property.findMany({
+            where: { ...where, id: { in: orderedIds } },
+            select: propertyCardSelect,
+          })
+        : Promise.resolve([]),
+      prisma.property.count({ where }),
+    ]);
+
+    const byId = new Map<string, (typeof matched)[number]>(
+      matched.map((p) => [p.id, p])
+    );
+    const sortedProperties = orderedIds
+      .map((id) => byId.get(id))
+      .filter((p): p is (typeof matched)[number] => Boolean(p));
+
+    return {
+      data: sortedProperties.map(toCard),
+      ...buildPagination(total, page, limit),
+    };
   }
 
   const [properties, total] = await Promise.all([
@@ -363,12 +523,10 @@ const listPublicProperties = async (query: ListQueryInput) => {
     prisma.property.count({ where }),
   ]);
 
-  return buildPaginatedResponse(
-    properties.map(toCard),
-    total,
-    page,
-    limit
-  );
+  return {
+    data: properties.map(toCard),
+    ...buildPagination(total, page, limit),
+  };
 };
 
 const getPublicProperty = async (slug: string, viewerId?: string) => {
@@ -429,14 +587,11 @@ const getMyProperties = async (
     prisma.property.count({ where }),
   ]);
 
-  return buildPaginatedResponse(
-    properties.map(toCard),
-    total,
-    page,
-    limit
-  );
+  return {
+    data: properties.map(toCard),
+    ...buildPagination(total, page, limit),
+  };
 };
-
 const getMyProperty = async (sellerId: string, propertyId: string) => {
   const property = await prisma.property.findFirst({
     where: { id: propertyId, sellerId, deletedAt: null },
@@ -547,8 +702,16 @@ const removeImage = async (sellerId: string, propertyId: string, url: string) =>
 
   const updated = current.filter((img) => img.url !== url);
 
-  if (current.length !== updated.length && url.startsWith("/uploads/")) {
-    await fs.unlink(path.join(process.cwd(), url)).catch(() => {});
+  if (current.length !== updated.length) {
+    // --- CLOUDINARY (new) ---
+    if (isCloudinaryUrl(url)) {
+      await deleteCloudinaryFile(url);
+    }
+
+    // --- LOCAL (old) -- keep for reference ---
+    // if (url.startsWith("/uploads/")) {
+    //   await fs.unlink(path.join(process.cwd(), url)).catch(() => {});
+    // }
   }
 
   return prisma.property.update({
@@ -653,7 +816,10 @@ const adminListProperties = async (
     prisma.property.count({ where }),
   ]);
 
-  return buildPaginatedResponse(properties.map(toCard), total, page, limit);
+  return {
+    data: properties.map(toCard),
+    ...buildPagination(total, page, limit),
+  };
 };
 
 const verifyProperty = async (

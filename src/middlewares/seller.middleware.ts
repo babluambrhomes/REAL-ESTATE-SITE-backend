@@ -2,6 +2,7 @@ import { Response, NextFunction } from "express";
 import prisma from "../config/prisma";
 import { ApiError } from "../utils";
 import { AuthRequest } from "../types";
+import { SellerType } from "../generated/prisma/enums";
 
 const checkSeller = async (
   req: AuthRequest,
@@ -46,7 +47,13 @@ const checkSellerVerified = async (
 
     const seller = await prisma.sellerProfile.findUnique({
       where: { userId: req.user.id },
-      select: { id: true, isActive: true, verificationStatus: true },
+      select: {
+        id: true,
+        isActive: true,
+        verificationStatus: true,
+        sellerType: true,
+        organizationId: true,
+      },
     });
 
     if (!seller) {
@@ -57,7 +64,18 @@ const checkSellerVerified = async (
       throw new ApiError(403, "Your seller account is deactivated");
     }
 
-    if (seller.verificationStatus !== "VERIFIED") {
+    if (seller.sellerType === SellerType.ORGANIZATION) {
+      if (!seller.organizationId) {
+        throw new ApiError(403, "Organization verification required for this action");
+      }
+      const org = await prisma.organization.findUnique({
+        where: { id: seller.organizationId },
+        select: { verificationStatus: true },
+      });
+      if (org?.verificationStatus !== "VERIFIED") {
+        throw new ApiError(403, "Organization verification required for this action");
+      }
+    } else if (seller.verificationStatus !== "VERIFIED") {
       throw new ApiError(403, "Seller verification required for this action");
     }
 

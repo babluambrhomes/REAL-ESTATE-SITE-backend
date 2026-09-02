@@ -35,7 +35,7 @@ const login = asyncHandler(async (req: AuthRequest, res: Response) => {
   const result = await authService.login(req.body as LoginInput, userAgent, ipAddress) as any;
 
   if (result.requiresOtp) {
-    res.status(200).json(new ApiResponse(200, null, result.message));
+    res.status(200).json(new ApiResponse(200, { verificationToken: result.verificationToken ?? null }, result.message));
     return;
   }
 

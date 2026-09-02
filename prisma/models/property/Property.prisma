@@ -28,7 +28,7 @@ model Property {
   description String? @db.Text
 
   transactionType TransactionType @map("transaction_type")
-  propertyType    PropertyType    @map("property_type")
+  propertyType    PropertyType  @default(APARTMENT)  @map("property_type")
   propertyStatus  PropertyStatus  @default(AVAILABLE) @map("property_status")
 
   // --- Location ---

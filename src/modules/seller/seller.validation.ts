@@ -46,6 +46,7 @@ export const becomeSellerSchema = z
     reraNumber: z.string().trim().max(50).optional(),
     organization: organizationSchema.optional(),
     ...profileFields,
+    categoryId: z.string().uuid("Invalid category"),
   })
   .refine(
     (d) => {

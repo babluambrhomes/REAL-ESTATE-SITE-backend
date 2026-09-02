@@ -3,8 +3,9 @@ import path from "path";
 import fs from "fs/promises";
 import prisma from "../../config/prisma";
 import { ApiError } from "../../utils";
-import { getPaginationParams, buildPaginatedResponse, isUniqueViolation, isRecordNotFound } from "../../helpers";
+import { getPaginationParams, buildPagination, isUniqueViolation, isRecordNotFound } from "../../helpers";
 import { processImage } from "../../workers/image/imageWorker.pool";
+import { uploadFile, deleteCloudinaryFile, isCloudinaryUrl } from "../../helpers/cloudinary.helper";
 import {
   CreateCategoryInput,
   UpdateCategoryInput,
@@ -32,7 +33,10 @@ const listCategories = async (page: number, limit: number) => {
     prisma.sellerCategory.count(),
   ]);
 
-  return buildPaginatedResponse(categories, total, p, l);
+  return {
+    data: categories,
+    ...buildPagination(total, p, l),
+  };
 };
 
 const getCategory = async (id: string) => {
@@ -207,17 +211,30 @@ const updateCategoryImage = async (
     throw new ApiError(500, result.error || "Image processing failed");
   }
 
-  const relPath = path
-    .relative(parsed.dir, result.outputs[0])
-    .split(path.sep)
-    .join("/");
-  const url = `/uploads/${relPath}`;
+  // --- CLOUDINARY (new) ---
+  const uploaded = await uploadFile(result.outputs[0], {
+    folder: `${process.env.CLOUDINARY_FOLDER || "real-estate"}/categories`,
+    resourceType: "image",
+  });
+  const url = uploaded.url;
 
-  if (category.imageUrl?.startsWith("/uploads/")) {
-    await fs
-      .unlink(path.join(process.cwd(), category.imageUrl))
-      .catch(() => {});
+  // Purane local/cloudinary image ko delete karo
+  if (category.imageUrl && isCloudinaryUrl(category.imageUrl)) {
+    await deleteCloudinaryFile(category.imageUrl);
   }
+
+  // --- LOCAL (old) -- keep for reference ---
+  // const relPath = path
+  //   .relative(parsed.dir, result.outputs[0])
+  //   .split(path.sep)
+  //   .join("/");
+  // const url = `/uploads/${relPath}`;
+
+  // if (category.imageUrl?.startsWith("/uploads/")) {
+  //   await fs
+  //     .unlink(path.join(process.cwd(), category.imageUrl))
+  //     .catch(() => {});
+  // }
 
   return prisma.sellerCategory.update({
     where: { id },

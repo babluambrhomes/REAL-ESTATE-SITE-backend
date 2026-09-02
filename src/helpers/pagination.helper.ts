@@ -10,16 +10,18 @@ interface PaginationResult {
   limit: number;
 }
 
+interface PaginationMeta {
+  total: number;
+  page: number;
+  limit: number;
+  pages: number;
+  hasNext: boolean;
+  hasPrev: boolean;
+}
+
 interface PaginatedResponse<T> {
   data: T[];
-  meta: {
-    total: number;
-    page: number;
-    limit: number;
-    pages: number;
-    hasNext: boolean;
-    hasPrev: boolean;
-  };
+  meta: PaginationMeta;
 }
 
 const getPaginationParams = (params: PaginationParams): PaginationResult => {
@@ -30,16 +32,16 @@ const getPaginationParams = (params: PaginationParams): PaginationResult => {
   return { skip, take: limit, page, limit };
 };
 
-const buildPaginatedResponse = <T>(
-  data: T[],
+// Sirf pagination meta return karta hai — data caller apni taraf se add karta hai:
+//   return { data: items, ...buildPagination(total, page, limit) };
+const buildPagination = (
   total: number,
   page: number,
   limit: number
-): PaginatedResponse<T> => {
+): { meta: PaginationMeta } => {
   const pages = Math.ceil(total / limit);
 
   return {
-    data,
     meta: {
       total,
       page,
@@ -51,5 +53,5 @@ const buildPaginatedResponse = <T>(
   };
 };
 
-export { getPaginationParams, buildPaginatedResponse };
-export type { PaginationParams, PaginationResult, PaginatedResponse };
+export { getPaginationParams, buildPagination };
+export type { PaginationParams, PaginationResult, PaginatedResponse, PaginationMeta };

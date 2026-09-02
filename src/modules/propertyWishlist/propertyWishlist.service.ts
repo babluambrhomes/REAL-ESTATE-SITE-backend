@@ -1,6 +1,6 @@
 import prisma from "../../config/prisma";
 import { ApiError } from "../../utils";
-import { getPaginationParams, buildPaginatedResponse } from "../../helpers";
+import { getPaginationParams, buildPagination } from "../../helpers";
 import { WishlistQueryInput } from "./propertyWishlist.validation";
 
 const propertyCardSelect = {
@@ -152,7 +152,10 @@ const getMyWishlist = async (userId: string, query: WishlistQueryInput) => {
     ...toCard(like.property),
   }));
 
-  return buildPaginatedResponse(data, total, page, limit);
+  return {
+    data,
+    ...buildPagination(total, page, limit),
+  };
 };
 
 export { toggleWishlist, getMyWishlist };

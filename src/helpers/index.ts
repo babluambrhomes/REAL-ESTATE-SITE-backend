@@ -18,8 +18,8 @@ export { hashPassword, comparePassword } from "./password.helper";
 
 export { createOtp, verifyOtp, isOtpExpired, generateOtpCode } from "./otp.helper";
 
-export { getPaginationParams, buildPaginatedResponse } from "./pagination.helper";
-export type { PaginationParams, PaginationResult, PaginatedResponse } from "./pagination.helper";
+export { getPaginationParams, buildPagination } from "./pagination.helper";
+export type { PaginationParams, PaginationResult, PaginatedResponse, PaginationMeta } from "./pagination.helper";
 
 export {
   generateTimestampSuffix,
@@ -33,3 +33,5 @@ export {
   withCache,
   getCacheVersion,
 } from "./cache.helper";
+
+export { getLocationFromIP } from "./getLocationFromIP";

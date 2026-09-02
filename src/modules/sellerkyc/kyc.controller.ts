@@ -24,8 +24,15 @@ const deleteDocument = asyncHandler(async (req: AuthRequest, res: Response) => {
 });
 
 const getDocumentFile = asyncHandler(async (req: AuthRequest, res: Response) => {
-  const absPath = await kycService.getDocumentFile(req.user!.id, String(req.params.docId));
-  res.sendFile(absPath);
+  const result = await kycService.getDocumentFile(req.user!.id, String(req.params.docId));
+  // --- CLOUDINARY (new) ---
+  if ("cloudinaryUrl" in result) {
+    res.status(200).json(new ApiResponse(200, { url: result.cloudinaryUrl! }));
+    return;
+  }
+  // --- LOCAL (old) -- keep for reference ---
+  // res.redirect(result.cloudinaryUrl!);
+  res.sendFile(result.absPath);
 });
 
 export { uploadDocument, getDocuments, deleteDocument, getDocumentFile };

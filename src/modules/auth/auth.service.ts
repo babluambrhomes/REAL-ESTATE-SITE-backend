@@ -17,12 +17,14 @@ import {
   verifyOtp as verifyOtpHelper,
   generatePurposeToken,
   verifyPurposeToken,
+  generateAccessToken,
   generateTokenPair,
   storeRefreshToken,
   revokeRefreshToken,
   revokeAllUserTokens,
   isRefreshTokenValid,
   verifyRefreshToken,
+  getLocationFromIP,
 } from "../../helpers";
 import { OtpPurpose } from "../../generated/prisma/enums";
 import { userSelect } from "../../middlewares/auth.middleware";
@@ -33,13 +35,14 @@ import { welcomeTemplate } from "../../emails/templates/welcome";
 import { passwordResetLinkTemplate } from "../../emails/templates/password-reset";
 import { firebaseAuth } from "../../config/firebase";
 
-const generateTokens = async (
+const createAuthResponse = async (
   user: { id: string; email: string | null; phone: string | null; status: string; emailVerified: boolean; phoneVerified: boolean; createdAt: Date; updatedAt: Date },
   userAgent?: string,
   ipAddress?: string
 ) => {
   const { accessToken, refreshToken } = generateTokenPair(user.id);
   await storeRefreshToken(user.id, refreshToken, userAgent, ipAddress);
+  getLocationFromIP(user.id, ipAddress);
 
   return {
     user: {
@@ -80,7 +83,7 @@ const register = async (data: RegisterInput, userAgent?: string, ipAddress?: str
       if (existingByGoogle.status === "SUSPENDED" || existingByGoogle.status === "DEACTIVATED") {
         throw new ApiError(403, "Account is not accessible");
       }
-      return generateTokens(existingByGoogle, userAgent, ipAddress);
+      return createAuthResponse(existingByGoogle, userAgent, ipAddress);
     }
 
     const existingByEmail = await prisma.user.findUnique({ where: { email: googleEmail } });
@@ -90,7 +93,7 @@ const register = async (data: RegisterInput, userAgent?: string, ipAddress?: str
         data: { googleId, emailVerified: true },
         select: userSelect,
       });
-      return generateTokens(updated, userAgent, ipAddress);
+      return createAuthResponse(updated, userAgent, ipAddress);
     }
 
     const newUser = await prisma.user.create({
@@ -126,7 +129,7 @@ const register = async (data: RegisterInput, userAgent?: string, ipAddress?: str
       await tx.buyerProfile.create({ data: { userId: newUser.id, isActive: true } });
     });
 
-    return generateTokens(newUser, userAgent, ipAddress);
+    return createAuthResponse(newUser, userAgent, ipAddress);
   }
 
   // --- Email + Password Registration ---
@@ -147,7 +150,7 @@ const register = async (data: RegisterInput, userAgent?: string, ipAddress?: str
       const template = otpVerificationTemplate({ code: otp.plainCode, userName: email });
       emailQueue.add("send-otp-email", { to: email, subject: template.subject, html: template.html });
 
-      return generateTokens(updated, userAgent, ipAddress);
+      return createAuthResponse(updated, userAgent, ipAddress);
     }
 
     const hashedPassword = await hashPassword(password);
@@ -172,7 +175,7 @@ const register = async (data: RegisterInput, userAgent?: string, ipAddress?: str
       });
     }
 
-    return generateTokens(newUser, userAgent, ipAddress);
+    return createAuthResponse(newUser, userAgent, ipAddress);
   }
 
   // --- Phone Only Registration ---
@@ -187,7 +190,7 @@ const register = async (data: RegisterInput, userAgent?: string, ipAddress?: str
       console.log(`OTP for phone ${phone}: ${otp.plainCode}`); // Log the OTP for testing purposes
       // smsQueue.add("send-phone-otp", { to: phone, message: `Your AmbrHomes verification code is: ${otp.plainCode}. Valid for 10 minutes.` });
 
-      return generateTokens(existing, userAgent, ipAddress);
+      return createAuthResponse(existing, userAgent, ipAddress);
     }
 
     const newUser = await prisma.user.create({
@@ -205,14 +208,14 @@ const register = async (data: RegisterInput, userAgent?: string, ipAddress?: str
       });
     }
 
-    return generateTokens(newUser, userAgent, ipAddress);
+    return createAuthResponse(newUser, userAgent, ipAddress);
   }
 
   throw new ApiError(400, "Invalid registration data");
 };
 
 const login = async (data: LoginInput, userAgent?: string, ipAddress?: string) => {
-  const { email, phone, password, code, accessToken } = data;
+  const { email, phone, password, accessToken } = data;
 
   // --- Google Login ---
   if (accessToken) {
@@ -240,7 +243,7 @@ const login = async (data: LoginInput, userAgent?: string, ipAddress?: string) =
     if (user.status === "DEACTIVATED") throw new ApiError(403, "Account has been deactivated");
     if (user.status === "PENDING") throw new ApiError(403, "Please verify your account to continue");
 
-    return generateTokens(user, userAgent, ipAddress);
+    return createAuthResponse(user, userAgent, ipAddress);
   }
 
   // --- Email + Password Login ---
@@ -255,7 +258,7 @@ const login = async (data: LoginInput, userAgent?: string, ipAddress?: string) =
     const isMatch = await comparePassword(password, user.hasPassword);
     if (!isMatch) throw new ApiError(401, "Invalid email or password");
 
-    return generateTokens(user, userAgent, ipAddress);
+    return createAuthResponse(user, userAgent, ipAddress);
   }
 
   // --- Phone Login ---
@@ -266,16 +269,18 @@ const login = async (data: LoginInput, userAgent?: string, ipAddress?: string) =
     if (user.status === "DEACTIVATED") throw new ApiError(403, "Account has been deactivated");
     if (user.status === "PENDING") throw new ApiError(403, "Please verify your phone to continue");
 
-    if (!code) {
-      const otp = await createOtp({ userId: user.id, identifier: phone, purpose: "LOGIN_PASSWORDLESS" as OtpPurpose });
-      smsQueue.add("send-phone-otp", { to: phone, message: `Your AmbrHomes login code is: ${otp.plainCode}. Valid for 10 minutes.` });
-      return { message: "OTP sent to your phone", requiresOtp: true };
-    }
+    const otp = await createOtp({ userId: user.id, identifier: phone, purpose: "PHONE_VERIFICATION" as OtpPurpose });
 
-    const result = await verifyOtpHelper({ identifier: phone, code, purpose: "LOGIN_PASSWORDLESS" as OtpPurpose });
-    if (!result.valid) throw new ApiError(400, result.message);
+    console.log(`Your AmbrHomes verification code is: ${otp.plainCode}. Valid for 10 minutes.`)
+    
+    smsQueue.add("send-phone-otp", { to: phone, message: `Your AmbrHomes verification code is: ${otp.plainCode}. Valid for 10 minutes.` });
 
-    return generateTokens(user, userAgent, ipAddress);
+    return {
+      message: "OTP sent to your phone",
+      requiresOtp: true,
+      verificationToken: generateAccessToken(user.id),
+    };
+    
   }
 
   throw new ApiError(400, "Invalid login credentials");
@@ -308,8 +313,8 @@ const privateOtpVerify = async (userId: string, data: ConfirmOtpInput, userAgent
       data: { emailVerified: true },
     });
 
-    const tokens = await generateTokens(updatedUser, userAgent, ipAddress);
-    return { message: "Email verified successfully", ...tokens };
+    const response = await createAuthResponse(updatedUser, userAgent, ipAddress);
+    return { message: "Email verified successfully", ...response };
   }
 
   if (purpose === "PHONE_VERIFICATION") {
@@ -326,8 +331,8 @@ const privateOtpVerify = async (userId: string, data: ConfirmOtpInput, userAgent
       await emailQueue.add("send-welcome-email", { to: user.email!, subject: welcomeHtml.subject, html: welcomeHtml.html });
     }
 
-    const tokens = await generateTokens(updatedUser, userAgent, ipAddress);
-    return { message: "Phone verified successfully", ...tokens };
+    const response = await createAuthResponse(updatedUser, userAgent, ipAddress);
+    return { message: "Phone verified successfully", ...response };
   }
 
   throw new ApiError(400, "Invalid purpose");

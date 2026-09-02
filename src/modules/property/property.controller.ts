@@ -1,5 +1,5 @@
 import { Response } from "express";
-import { ApiResponse, asyncHandler } from "../../utils";
+import { ApiError, ApiResponse, asyncHandler } from "../../utils";
 import { AuthRequest } from "../../types";
 import {
   CreatePropertyInput,
@@ -7,13 +7,18 @@ import {
   CreateVariantInput,
   UpdateVariantInput,
   ListQueryInput,
+  listQuerySchema,
 } from "./property.validation";
 import * as propertyService from "./property.service";
 
 const listProperties = asyncHandler(async (req: AuthRequest, res: Response) => {
-  const query = (req.query ?? {}) as unknown as ListQueryInput;
-  const result = await propertyService.listPublicProperties(query);
-  res.status(200).json(new ApiResponse(200, result));
+  const result = listQuerySchema.safeParse(req.query ?? {});
+  if (!result.success) {
+    throw new ApiError(400, result.error.issues[0]?.message ?? "Invalid query");
+  }
+  const query: ListQueryInput = result.data;
+  const data = await propertyService.listPublicProperties(query);
+  res.status(200).json(new ApiResponse(200, data));
 });
 
 const getPublicProperty = asyncHandler(async (req: AuthRequest, res: Response) => {

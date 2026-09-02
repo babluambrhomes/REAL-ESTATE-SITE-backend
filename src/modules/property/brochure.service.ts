@@ -3,6 +3,7 @@ import path from "path";
 import prisma from "../../config/prisma";
 import { ApiError } from "../../utils";
 import { resolvePrivatePath } from "../../config/storage";
+import { isCloudinaryUrl } from "../../helpers/cloudinary.helper";
 
 const getBrochure = async (propertyId: string, variantId: string) => {
   const variant = await prisma.propertyVariant.findFirst({
@@ -21,6 +22,13 @@ const getBrochure = async (propertyId: string, variantId: string) => {
   if (!variant.brochure) {
     throw new ApiError(404, "Brochure not available for this variant");
   }
+
+  // --- CLOUDINARY (new) ---
+  if (isCloudinaryUrl(variant.brochure)) {
+    return { cloudinaryUrl: variant.brochure };
+  }
+  // --- LOCAL (old) -- keep for reference ---
+  // const absPath = resolvePrivatePath(variant.brochure);
 
   const absPath = resolvePrivatePath(variant.brochure);
 

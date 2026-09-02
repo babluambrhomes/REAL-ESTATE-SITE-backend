@@ -4,12 +4,18 @@ import { AuthRequest } from "../../types";
 import { BecomeSellerInput, UpdateSellerInput } from "./seller.validation";
 import * as sellerService from "./seller.service";
 
+
 const becomeSeller = asyncHandler(async (req: AuthRequest, res: Response) => {
   const seller = await sellerService.becomeSeller(
     req.user!.id,
     req.body as BecomeSellerInput
   );
-  res.status(201).json(new ApiResponse(201, seller, "Seller account created"));
+  const status = (seller as any)?.verificationStatus;
+  const message =
+    status === "VERIFIED"
+      ? "Seller account created and verified"
+      : "Seller account created. Verification is pending — you can go live after approval.";
+  res.status(201).json(new ApiResponse(201, seller, message));
 });
 
 const getCategories = asyncHandler(async (req: AuthRequest, res: Response) => {
@@ -54,6 +60,7 @@ const getPublicProfile = asyncHandler(async (req: AuthRequest, res: Response) =>
   const profile = await sellerService.getPublicProfile(String(req.params.slug));
   res.status(200).json(new ApiResponse(200, profile));
 });
+
 
 export {
   becomeSeller,

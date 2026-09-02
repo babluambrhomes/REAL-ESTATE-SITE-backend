@@ -4,6 +4,7 @@ import { ApiError, ApiResponse, asyncHandler } from "../../utils";
 import { AuthRequest } from "../../types";
 import { UpdateUserInput } from "./user.validation";
 import { processImage } from "../../workers/image/imageWorker.pool";
+import { uploadFile } from "../../helpers/cloudinary.helper";
 import * as userService from "./user.service";
 
 const getProfile = asyncHandler(async (req: AuthRequest, res: Response) => {
@@ -14,7 +15,8 @@ const getProfile = asyncHandler(async (req: AuthRequest, res: Response) => {
 const updateProfile = asyncHandler(async (req: AuthRequest, res: Response) => {
   const user = await userService.updateProfile(
     req.user!.id,
-    req.body as UpdateUserInput
+    req.body as UpdateUserInput,
+    req.ip
   );
   res.status(200).json(new ApiResponse(200, user, "Profile updated"));
 });
@@ -41,9 +43,19 @@ const updateProfilePicture = asyncHandler(async (req: AuthRequest, res: Response
     throw new ApiError(500, result.error || "Image processing failed");
   }
 
-  const relPath = path.relative(parsed.dir, result.outputs[0]).split(path.sep).join("/");
-  const avatarUrl = `/uploads/${relPath}`;
+  // --- CLOUDINARY (new) ---
+  // Resized local file ko Cloudinary pe upload karke secure_url store karo
+  const uploaded = await uploadFile(result.outputs[0], {
+    folder: `${process.env.CLOUDINARY_FOLDER || "real-estate"}/users/avatars`,
+    resourceType: "image",
+  });
+  const avatarUrl = uploaded.url;
   await userService.updateProfilePicture(req.user!.id, avatarUrl);
+
+  // --- LOCAL (old) -- keep for reference ---
+  // const relPath = path.relative(parsed.dir, result.outputs[0]).split(path.sep).join("/");
+  // const avatarUrl = `/uploads/${relPath}`;
+  // await userService.updateProfilePicture(req.user!.id, avatarUrl);
 
   res.status(200).json(new ApiResponse(200, { avatarUrl }, "Profile picture updated"));
 });

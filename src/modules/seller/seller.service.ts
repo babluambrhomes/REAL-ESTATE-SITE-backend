@@ -5,7 +5,8 @@ import { ApiError } from "../../utils";
 import { BecomeSellerInput, UpdateSellerInput } from "./seller.validation";
 import { processImage } from "../../workers/image/imageWorker.pool";
 import { getDocRequirements } from "../../config/sellerKyc";
-import { getPaginationParams, buildPaginatedResponse, generateTimestampSuffix, isUniqueViolation, withUniqueRetry } from "../../helpers";
+import { getPaginationParams, buildPagination, generateTimestampSuffix, isUniqueViolation, withUniqueRetry } from "../../helpers";
+import { uploadFile } from "../../helpers/cloudinary.helper";
 import {
   SellerType,
   MemberScope,
@@ -124,7 +125,10 @@ const getCategories = async (page: number, limit: number) => {
     prisma.sellerCategory.count({ where: { isActive: true } }),
   ]);
 
-  return buildPaginatedResponse(categories, total, p, l);
+  return {
+    data: categories,
+    ...buildPagination(total, p, l),
+  };
 };
 
 const becomeSeller = async (userId: string, data: BecomeSellerInput) => {
@@ -402,8 +406,16 @@ const updateMedia = async (
     throw new ApiError(500, result.error || "Image processing failed");
   }
 
-  const relPath = path.relative(parsed.dir, result.outputs[0]).split(path.sep).join("/");
-  const url = `/uploads/${relPath}`;
+  // --- CLOUDINARY (new) ---
+  const uploaded = await uploadFile(result.outputs[0], {
+    folder: `${process.env.CLOUDINARY_FOLDER || "real-estate"}/sellers/${suffix}s`,
+    resourceType: "image",
+  });
+  const url = uploaded.url;
+
+  // --- LOCAL (old) -- keep for reference ---
+  // const relPath = path.relative(parsed.dir, result.outputs[0]).split(path.sep).join("/");
+  // const url = `/uploads/${relPath}`;
 
   await prisma.sellerProfile.update({
     where: { id: seller.id },

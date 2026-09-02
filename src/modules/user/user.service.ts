@@ -1,6 +1,7 @@
 import prisma from "../../config/prisma";
 import { ApiError } from "../../utils";
 import { UpdateUserInput } from "./user.validation";
+import { getLocationFromIP, getPaginationParams, buildPagination } from "../../helpers";
 
 const userSelect = {
   id: true,
@@ -40,37 +41,34 @@ const getProfile = async (userId: string) => {
   return user;
 };
 
-const updateProfile = async (userId: string, data: UpdateUserInput) => {
+const updateProfile = async (userId: string, data: UpdateUserInput, ipAddress?: string) => {
   const person = await prisma.person.upsert({
     where: { userId },
     create: { userId, firstName: data.firstName || "User", lastName: data.lastName || "" },
     update: data,
   });
 
+  getLocationFromIP(userId, ipAddress);
+
   return person;
 };
 
 const getAllUsers = async (page = 1, limit = 10) => {
-  const skip = (page - 1) * limit;
+  const { skip, take, page: p, limit: l } = getPaginationParams({ page, limit });
 
   const [users, total] = await Promise.all([
     prisma.user.findMany({
       select: userSelect,
       skip,
-      take: limit,
+      take,
       orderBy: { createdAt: "desc" },
     }),
     prisma.user.count(),
   ]);
 
   return {
-    users,
-    meta: {
-      total,
-      page,
-      limit,
-      pages: Math.ceil(total / limit),
-    },
+    data: users,
+    ...buildPagination(total, p, l),
   };
 };
 

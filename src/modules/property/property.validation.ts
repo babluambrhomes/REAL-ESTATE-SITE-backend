@@ -67,6 +67,12 @@ const imageObject = z.object({
   isFeatured: z.boolean().optional(),
 });
 
+const videoObject = z.object({
+  url: z.string().trim().min(1, "Video url is required").max(2000),
+  thumbnailUrl: z.string().trim().max(2000).optional(),
+  title: z.string().trim().max(300).optional(),
+});
+
 export const createVariantSchema = z.object({
   variantName: z.string().trim().min(1, "Variant name is required").max(100),
   bedrooms: z.number().int().min(0).optional(),
@@ -125,8 +131,7 @@ export const createPropertySchema = z.object({
   nearbyPlaces: z.array(z.string()).optional(),
   societyInfo: z.record(z.string(), z.any()).optional(),
 
-  videoUrl: z.string().trim().max(2000).optional(),
-  virtualTourUrl: z.string().trim().max(2000).optional(),
+  videos: z.array(videoObject).optional(),
 
   reraNumber: z.string().trim().max(100).optional(),
   registrationNumber: z.string().trim().max(100).optional(),
