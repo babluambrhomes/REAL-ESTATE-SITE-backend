@@ -5,6 +5,6 @@ import { searchQuerySchema } from "./search.validation";
 
 const router = Router();
 
-router.get("/properties", validate(searchQuerySchema), searchProperties);
+router.get("/properties", validate(searchQuerySchema, "query"), searchProperties);
 
 export default router;

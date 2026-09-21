@@ -79,10 +79,10 @@ const executeSearch = async (
   const conditions: Prisma.Sql[] = [];
 
   // Base filters (always active)
-  conditions.push(Prisma.sql`p."isActive" = true`);
-  conditions.push(Prisma.sql`p."deletedAt" IS NULL`);
+  conditions.push(Prisma.sql`p."is_active" = true`);
+  conditions.push(Prisma.sql`p."deleted_at" IS NULL`);
   // Public search only exposes available / under-offer listings
-  conditions.push(Prisma.sql`p."propertyStatus" IN ('AVAILABLE', 'UNDER_OFFER')`);
+  conditions.push(Prisma.sql`p."property_status" IN ('AVAILABLE', 'UNDER_OFFER')`);
 
   // --- Text search via tsvector ---
   if (safeHasText) {
@@ -113,13 +113,13 @@ const executeSearch = async (
 
   // --- Property filters ---
   if (query.transactionType) {
-    conditions.push(Prisma.sql`p."transactionType" = ${query.transactionType}`);
+    conditions.push(Prisma.sql`p."transaction_type" = ${query.transactionType}`);
   }
   if (query.propertyType) {
-    conditions.push(Prisma.sql`p."propertyType" = ${query.propertyType}`);
+    conditions.push(Prisma.sql`p."property_type" = ${query.propertyType}`);
   }
   if (query.propertyStatus) {
-    conditions.push(Prisma.sql`p."propertyStatus" = ${query.propertyStatus}`);
+    conditions.push(Prisma.sql`p."property_status" = ${query.propertyStatus}`);
   }
   if (query.city) {
     conditions.push(Prisma.sql`LOWER(p."city") = LOWER(${query.city})`);
@@ -132,28 +132,28 @@ const executeSearch = async (
     conditions.push(Prisma.sql`p."pincode" ILIKE ${"%" + escaped + "%"}`);
   }
   if (query.ownershipType) {
-    conditions.push(Prisma.sql`p."ownershipType" = ${query.ownershipType}`);
+    conditions.push(Prisma.sql`p."ownership_type" = ${query.ownershipType}`);
   }
   if (query.listedBy) {
-    conditions.push(Prisma.sql`p."listedBy" = ${query.listedBy}`);
+    conditions.push(Prisma.sql`p."listed_by" = ${query.listedBy}`);
   }
   if (query.isFeatured !== undefined) {
-    conditions.push(Prisma.sql`p."isFeatured" = ${query.isFeatured === "true"}`);
+    conditions.push(Prisma.sql`p."is_featured" = ${query.isFeatured === "true"}`);
   }
   if (query.isVerified !== undefined) {
-    conditions.push(Prisma.sql`p."isVerified" = ${query.isVerified === "true"}`);
+    conditions.push(Prisma.sql`p."is_verified" = ${query.isVerified === "true"}`);
   }
   if (query.sellerSlug) {
     conditions.push(
       Prisma.sql`EXISTS (
-        SELECT 1 FROM "SellerProfile" sp
-        WHERE sp."id" = p."sellerId" AND sp."slug" = ${query.sellerSlug}
+        SELECT 1 FROM "seller_profiles" sp
+        WHERE sp."id" = p."seller_id" AND sp."slug" = ${query.sellerSlug}
       )`
     );
   }
 
   // --- Variant filters (used by LATERAL selection AND count EXISTS) ---
-  const variantConditions: Prisma.Sql[] = [Prisma.sql`pv."isActive" = true`];
+  const variantConditions: Prisma.Sql[] = [Prisma.sql`pv."is_active" = true`];
 
   if (query.minPrice !== undefined) {
     variantConditions.push(Prisma.sql`pv."price" >= ${query.minPrice}`);
@@ -169,10 +169,10 @@ const executeSearch = async (
     variantConditions.push(Prisma.sql`pv."bathrooms" = ${query.bathrooms}`);
   }
   if (query.furnishingStatus) {
-    variantConditions.push(Prisma.sql`pv."furnishingStatus" = ${query.furnishingStatus}`);
+    variantConditions.push(Prisma.sql`pv."furnishing_status" = ${query.furnishingStatus}`);
   }
   if (query.availabilityStatus) {
-    variantConditions.push(Prisma.sql`pv."availabilityStatus" = ${query.availabilityStatus}`);
+    variantConditions.push(Prisma.sql`pv."construction_status" = ${query.availabilityStatus}`);
   }
 
   const variantWhere = Prisma.join(variantConditions, " AND ");
@@ -180,124 +180,147 @@ const executeSearch = async (
   // --- Combine all property-level conditions ---
   const whereClause = Prisma.join(conditions, " AND ");
 
-  // --- Build SELECT columns ---
-  const distanceExpr = hasLocation
-    ? Prisma.sql`ST_Distance(p."geog", ST_SetSRID(ST_MakePoint(${query.lng!}, ${query.lat!}), 4326)::geography)::float8 AS "distanceMeters"`
-    : Prisma.sql`NULL::float8 AS "distanceMeters"`;
+  const sort = query.sort || (safeHasText ? "relevance" : hasLocation ? "distance" : "newest");
 
-  const rankExpr = safeHasText
+  // Mehngi computations pre-LIMIT sirf tab, jab wo ORDER BY sort key hon
+  const needRankPreLimit = safeHasText && sort === "relevance";
+  const needDistancePreLimit = hasLocation && (sort === "distance" || (sort === "relevance" && safeHasText));
+
+  const rankInnerExpr: Prisma.Sql = needRankPreLimit
     ? Prisma.sql`ts_rank(p."searchVector", websearch_to_tsquery('english', ${sanitizedQ}), 1)::float8 AS "textRank"`
     : Prisma.sql`NULL::float8 AS "textRank"`;
 
-  const snippetExpr = safeHasText
-    ? Prisma.sql`ts_headline('english', coalesce(p."description", ''), websearch_to_tsquery('english', ${sanitizedQ}), 'StartSel=<mark>, StopSel=</mark>, MaxWords=35, MinWords=10') AS "snippet"`
+  const distanceInnerExpr: Prisma.Sql = needDistancePreLimit
+    ? Prisma.sql`ST_Distance(p."geog", ST_SetSRID(ST_MakePoint(${query.lng!}, ${query.lat!}), 4326)::geography)::float8 AS "distanceMeters"`
+    : Prisma.sql`NULL::float8 AS "distanceMeters"`;
+
+  const rankOuterExpr: Prisma.Sql = needRankPreLimit
+    ? Prisma.sql`s."textRank" AS "textRank"`
+    : safeHasText
+      ? Prisma.sql`ts_rank(po."searchVector", websearch_to_tsquery('english', ${sanitizedQ}), 1)::float8 AS "textRank"`
+      : Prisma.sql`NULL::float8 AS "textRank"`;
+
+  const distanceOuterExpr: Prisma.Sql = needDistancePreLimit
+    ? Prisma.sql`s."distanceMeters" AS "distanceMeters"`
+    : hasLocation
+      ? Prisma.sql`ST_Distance(po."geog", ST_SetSRID(ST_MakePoint(${query.lng!}, ${query.lat!}), 4326)::geography)::float8 AS "distanceMeters"`
+      : Prisma.sql`NULL::float8 AS "distanceMeters"`;
+
+  const snippetExpr: Prisma.Sql = safeHasText
+    ? Prisma.sql`ts_headline('english', coalesce(left(po."description", 2000), ''), websearch_to_tsquery('english', ${sanitizedQ}), 'StartSel=<mark>, StopSel=</mark>, MaxWords=35, MinWords=10') AS "snippet"`
     : Prisma.sql`NULL::text AS "snippet"`;
 
-  // --- Build ORDER BY (genuine outer sort on the LATERAL-selected variant) ---
+  // --- Build ORDER BY (genuine sort on the LATERAL-selected variant, applied inside subquery) ---
   let orderBy: Prisma.Sql;
-  const sort = query.sort || (safeHasText ? "relevance" : hasLocation ? "distance" : "newest");
 
   switch (sort) {
     case "relevance":
       orderBy = safeHasText
-        ? Prisma.sql`"textRank" DESC, "distanceMeters" ASC NULLS LAST, p."createdAt" DESC`
-        : Prisma.sql`p."createdAt" DESC`;
+        ? Prisma.sql`"textRank" DESC, "distanceMeters" ASC NULLS LAST, p."created_at" DESC`
+        : Prisma.sql`p."created_at" DESC`;
       break;
     case "distance":
       orderBy = hasLocation
-        ? Prisma.sql`"distanceMeters" ASC NULLS LAST, p."createdAt" DESC`
-        : Prisma.sql`p."createdAt" DESC`;
+        ? Prisma.sql`"distanceMeters" ASC NULLS LAST, p."created_at" DESC`
+        : Prisma.sql`p."created_at" DESC`;
       break;
     case "price_asc":
-      orderBy = Prisma.sql`pv."price" ASC NULLS LAST, p."createdAt" DESC`;
+      orderBy = Prisma.sql`pv."price" ASC NULLS LAST, p."created_at" DESC`;
       break;
     case "price_desc":
-      orderBy = Prisma.sql`pv."price" DESC NULLS LAST, p."createdAt" DESC`;
+      orderBy = Prisma.sql`pv."price" DESC NULLS LAST, p."created_at" DESC`;
       break;
     case "popular":
-      orderBy = Prisma.sql`p."viewsCount" DESC, p."likesCount" DESC`;
+      orderBy = Prisma.sql`p."views_count" DESC, p."likes_count" DESC`;
       break;
     default:
-      orderBy = Prisma.sql`p."createdAt" DESC`;
+      orderBy = Prisma.sql`p."created_at" DESC`;
   }
 
-  // --- Execute queries inside transaction with timeout protection ---
-  const [countResult, rows] = await prisma.$transaction(async (tx) => {
-    // 5 second query timeout — prevents long-running distance/text searches
-    await tx.$executeRaw`SET LOCAL statement_timeout = '5000'`;
-
-    const count = await tx.$queryRaw<{ count: bigint }[]>`
-      SELECT COUNT(p."id")::bigint AS count
-      FROM "Property" p
-      WHERE ${whereClause}
-        AND EXISTS (
-          SELECT 1 FROM "PropertyVariant" pv
-          WHERE pv."propertyId" = p."id"
-          AND ${variantWhere}
-        )
-    `;
-
-    const resultRows = await tx.$queryRaw<Record<string, unknown>[]>`
+  const rows = await prisma.$queryRaw<Record<string, unknown>[]>`
       SELECT
-        p."id",
-        p."propertyCode",
-        p."title",
-        p."slug",
-        LEFT(p."description", 200) AS "description",
-        p."transactionType",
-        p."propertyType",
-        p."propertyStatus",
-        p."city",
-        p."state",
-        p."pincode",
-        p."addressLine",
-        p."latitude",
-        p."longitude",
-        p."isFeatured",
-        p."isVerified",
-        p."viewsCount",
-        p."likesCount",
-        p."averageRating",
-        p."ratingCount",
-        p."createdAt",
+        s."id",
+        s."propertyCode",
+        s."title",
+        s."slug",
+        s."transactionType",
+        s."propertyType",
+        s."propertyStatus",
+        s."city",
+        s."state",
+        s."pincode",
+        s."addressLine",
+        s."latitude",
+        s."longitude",
+        s."isFeatured",
+        s."isVerified",
+        s."viewsCount",
+        s."likesCount",
+        s."averageRating",
+        s."ratingCount",
+        s."createdAt",
+        s."total",
 
-        -- Extract only featured image URL + total count (no full array transfer)
-        COALESCE(
-          (SELECT e->>'url' FROM jsonb_array_elements(p."images") e WHERE (e->>'isFeatured')::boolean = true LIMIT 1),
-          (SELECT e->>'url' FROM jsonb_array_elements(p."images") e LIMIT 1)
-        ) AS "featuredImageUrl",
-        jsonb_array_length(COALESCE(p."images", '[]'::jsonb)) AS "imagesCount",
+        ${rankOuterExpr},
+        ${distanceOuterExpr},
 
-        ${distanceExpr},
-        ${rankExpr},
+        LEFT(po."description", 200) AS "description",
+        po."images" AS "images",
+
         ${snippetExpr},
 
-        -- Seller info
-        sp."id" AS "sellerId",
-        sp."slug" AS "sellerSlug",
-        sp."referenceCode" AS "sellerReferenceCode",
-        sp."headline" AS "sellerHeadline",
-        sp."logoUrl" AS "sellerLogoUrl",
-        sp."sellerType" AS "sellerType",
+        s."sellerId",
+        s."sellerSlug",
+        s."sellerReferenceCode",
+        s."sellerHeadline",
+        s."sellerLogoUrl",
+        s."sellerType",
 
-        -- Best matching variant (LATERAL picks 1 per property)
-        pv."id" AS "variantId",
-        pv."variantName",
-        pv."bedrooms",
-        pv."bathrooms",
-        pv."price",
-        pv."mrpPrice",
-        pv."pricePerSqft",
-        pv."totalArea",
-        pv."totalAreaUnit",
-        pv."furnishingStatus",
-        pv."availabilityStatus"
+        s."variantId",
+        s."variantName",
+        s."bedrooms",
+        s."bathrooms",
+        s."price",
+        s."mrpPrice",
+        s."pricePerSqft",
+        s."totalArea",
+        s."totalAreaUnit",
+        s."furnishingStatus",
+        s."availabilityStatus"
 
-      FROM "Property" p
-      INNER JOIN "SellerProfile" sp ON sp."id" = p."sellerId"
-      INNER JOIN LATERAL (
+      FROM (
         SELECT
-          pv."id",
+          p."id",
+          p."property_code" AS "propertyCode",
+          p."title",
+          p."slug",
+          p."transaction_type" AS "transactionType",
+          p."property_type" AS "propertyType",
+          p."property_status" AS "propertyStatus",
+          p."city",
+          p."state",
+          p."pincode",
+          p."address_line" AS "addressLine",
+          p."latitude",
+          p."longitude",
+          p."is_featured" AS "isFeatured",
+          p."is_verified" AS "isVerified",
+          p."views_count" AS "viewsCount",
+          p."likes_count" AS "likesCount",
+          p."average_rating" AS "averageRating",
+          p."rating_count" AS "ratingCount",
+          p."created_at" AS "createdAt",
+
+          COUNT(*) OVER () AS "total",
+
+          sp."id" AS "sellerId",
+          sp."slug" AS "sellerSlug",
+          sp."reference_code" AS "sellerReferenceCode",
+          sp."headline" AS "sellerHeadline",
+          sp."logo_url" AS "sellerLogoUrl",
+          sp."seller_type" AS "sellerType",
+
+          pv."id" AS "variantId",
           pv."variantName",
           pv."bedrooms",
           pv."bathrooms",
@@ -307,25 +330,46 @@ const executeSearch = async (
           pv."totalArea",
           pv."totalAreaUnit",
           pv."furnishingStatus",
-          pv."availabilityStatus"
-        FROM "PropertyVariant" pv
-        WHERE pv."propertyId" = p."id"
-          AND ${variantWhere}
-        ORDER BY pv."price" ASC NULLS LAST
-        LIMIT 1
-      ) pv ON true
-      WHERE ${whereClause}
-      ORDER BY ${orderBy}
-      LIMIT ${take} OFFSET ${skip}
+          pv."availabilityStatus",
+
+          ${rankInnerExpr},
+          ${distanceInnerExpr}
+
+        FROM "properties" p
+        INNER JOIN "seller_profiles" sp ON sp."id" = p."seller_id"
+        INNER JOIN LATERAL (
+          SELECT
+            pv."id",
+            pv."variant_name" AS "variantName",
+            pv."bedrooms",
+            pv."bathrooms",
+            pv."price",
+            pv."mrp_price" AS "mrpPrice",
+            pv."price_per_sqft" AS "pricePerSqft",
+            pv."total_area" AS "totalArea",
+            pv."total_area_unit" AS "totalAreaUnit",
+            pv."furnishing_status" AS "furnishingStatus",
+            pv."construction_status" AS "availabilityStatus"
+          FROM "property_variants" pv
+          WHERE pv."property_id" = p."id"
+            AND ${variantWhere}
+          ORDER BY pv."price" ASC NULLS LAST
+          LIMIT 1
+        ) pv ON true
+        WHERE ${whereClause}
+        ORDER BY ${orderBy}
+        LIMIT ${take} OFFSET ${skip}
+      ) s
+      INNER JOIN "properties" po ON po."id" = s."id"
     `;
 
-    return [count, resultRows] as const;
-  });
-
-  const total = Number(countResult[0]?.count ?? 0);
+  const total = rows.length ? Number(rows[0].total ?? 0) : 0;
 
   // --- Format response ---
   const formattedData = rows.map((row) => {
+    const imgs: Array<{ url?: string; isFeatured?: boolean }> =
+      Array.isArray(row.images) ? row.images : [];
+
     return {
       id: row.id,
       propertyCode: row.propertyCode,
@@ -341,7 +385,7 @@ const executeSearch = async (
       addressLine: row.addressLine,
       latitude: row.latitude,
       longitude: row.longitude,
-      featuredImage: row.featuredImageUrl ?? null,
+      featuredImage: imgs.find((i) => i.isFeatured)?.url ?? imgs[0]?.url ?? null,
       isFeatured: row.isFeatured,
       isVerified: row.isVerified,
       viewsCount: row.viewsCount,
@@ -349,7 +393,7 @@ const executeSearch = async (
       averageRating: row.averageRating,
       ratingCount: row.ratingCount,
       createdAt: row.createdAt,
-      imagesCount: row.imagesCount ?? 0,
+      imagesCount: imgs.length,
 
       distanceKm: row.distanceMeters != null
         ? Math.round((Number(row.distanceMeters) / 1000) * 100) / 100

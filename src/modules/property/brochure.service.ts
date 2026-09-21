@@ -27,6 +27,7 @@ const getBrochure = async (propertyId: string, variantId: string) => {
   if (isCloudinaryUrl(variant.brochure)) {
     return { cloudinaryUrl: variant.brochure };
   }
+  
   // --- LOCAL (old) -- keep for reference ---
   // const absPath = resolvePrivatePath(variant.brochure);
 

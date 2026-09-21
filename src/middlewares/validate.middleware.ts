@@ -21,7 +21,9 @@ const validate = (
       );
     }
 
-    req[type] = result.data;
+    if (type !== "query") {
+      req[type] = result.data;
+    }
     next();
   };
 };

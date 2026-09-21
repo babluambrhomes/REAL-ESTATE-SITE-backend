@@ -52,8 +52,8 @@ const apiRateLimit = rateLimit({
 
 // Preset: OTP routes (very strict)
 const otpRateLimit = rateLimit({
-  windowMs: 5 * 60 * 1000,
-  maxRequests: 5,
+  windowMs: 1 * 60 * 1000,
+  maxRequests: 20,
   message: "Too many OTP requests, please try again after 5 minutes",
 });
 

@@ -22,7 +22,7 @@ Register/login karne ke liye niche diye gaye dummy credentials use karein. Ye ko
 | 5 | Seller (Individual) — PENDING | Suresh Kumar | `suresh.seller@test.com` | `9870000004` | `Test@12345` |
 | 6 | Seller (Individual) — REJECTED | Vikram Singh | `vikram.seller@test.com` | `9870000005` | `Test@12345` |
 | 7 | Seller (Organization) — VERIFIED | Priya Mehta | `priya.org@test.com` | `9870000006` | `Test@12345` |
-| 8 | Seller (Organization) — PENDING | Rohan Gupta | `rohan.org@test.com` | `9870000007` | `Test@12345` |
+| 8 | Seller (Organization) — PENDING | Shweta Rani | `shweta.org@test.com` | `9870000007` | `Test@12345` |
 | 9 | Buyer (default role) | Ananya Desai | `ananya.buyer@test.com` | `9870000008` | `Test@12345` |
 
 
@@ -45,4 +45,3 @@ Register/login karne ke liye niche diye gaye dummy credentials use karein. Ye ko
 5. **Pending Organization Seller** (`rohan.org@test.com`) → property create blocked
    - `POST /properties` → `403 Organization verification required for this action`
 
-> Note: Seller ka `verificationStatus` (Individual) ya Organization ka `verificationStatus` (Org seller) ko database me `VERIFIED` set karna hoga taaki create/update/delete routes pe allowed mile.
