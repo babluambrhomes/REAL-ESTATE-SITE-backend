@@ -1,0 +1,104 @@
+
+name: Check, Build and Deploy Roofin Backend
+
+on:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: roofin-backend-deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+
+  # ==========================================
+  # JOB 1: CHECK + BUILD
+  # ==========================================
+  check-code:
+    name: Check and Build
+    runs-on: ubuntu-latest
+
+    steps:
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: TypeScript check
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+        env:
+          DATABASE_URL: postgresql://dummy:dummy@localhost:5432/roofin
+
+
+  # ==========================================
+  # JOB 2: DEPLOY TO VPS
+  # ==========================================
+  deploy:
+    name: Deploy to VPS
+    runs-on: ubuntu-latest
+
+    needs: check-code
+
+    steps:
+
+      - name: Deploy to VPS
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT }}
+
+          script: |
+            set -e
+
+            echo "================================="
+            echo "Deploying Roofin Backend"
+            echo "================================="
+
+            cd /var/www/roofin/backend
+
+            echo "Pulling latest code..."
+
+            git fetch origin main
+            git reset --hard origin/main
+
+            echo "Installing dependencies..."
+
+            npm ci
+
+            echo "Applying database migrations..."
+
+            npx prisma migrate deploy
+
+            echo "Generating Prisma Client..."
+
+            npx prisma generate
+
+            echo "Building application..."
+
+            npm run build
+
+            echo "Restarting PM2..."
+
+            pm2 restart roofin-backend 
+
+            echo "================================="
+            echo "Deployment completed successfully!"
+            echo "================================="
+

@@ -2,6 +2,7 @@ import { Prisma } from "../../generated/prisma/client";
 import prisma from "../../config/prisma";
 import { getPaginationParams, buildPagination, buildCacheKey, withCache, getCacheVersion } from "../../helpers";
 import { SearchQueryInput } from "./search.validation";
+import { trackTrendingSearch } from "./suggestions.service";
 import type { SearchResponse, SearchMeta } from "./search.types";
 
 // ============================================================
@@ -48,6 +49,11 @@ const searchProperties = async (
   query: SearchQueryInput
 ): Promise<SearchResponse> => {
   const { page = 1 } = query;
+
+  // Trending search track (fire & forget, Redis only) — cache hit pe bhi chale
+  if (query.q && query.q.trim().length > 0) {
+    trackTrendingSearch(sanitizeSearchQuery(query.q));
+  }
 
   const cacheVersion = await getCacheVersion();
   const cacheKey = buildCacheKey("search:v1", { ...query, v: cacheVersion });

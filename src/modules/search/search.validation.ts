@@ -104,3 +104,16 @@ export const searchQuerySchema = z.object({
 });
 
 export type SearchQueryInput = z.infer<typeof searchQuerySchema>;
+
+// ============================================================
+// Filter Suggestions (location + trending based)
+// ============================================================
+export const suggestionsQuerySchema = z.object({
+  lat: z.coerce.number().min(-90).max(90).optional(),
+  lng: z.coerce.number().min(-180).max(180).optional(),
+  city: z.string().trim().max(100).optional(),
+  radiusKm: z.coerce.number().min(1).max(200).optional(),
+  transactionType: z.enum(transactionTypes).optional(),
+});
+
+export type SuggestionsQueryInput = z.infer<typeof suggestionsQuerySchema>;
