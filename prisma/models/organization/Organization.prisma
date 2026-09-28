@@ -92,6 +92,10 @@ model Organization {
   // Organization 1 ←→ Many EnquiryForms
   enquiryForms EnquiryForm[]
 
+  // Organization ki properties me book hui site visits
+  // Organization 1 ←→ Many SiteVisits
+  siteVisits SiteVisit[]
+
   @@index([createdBy])
   @@index([status])
   @@map("organizations")

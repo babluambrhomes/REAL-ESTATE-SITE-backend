@@ -1,0 +1,82 @@
+// ============================================================
+// TABLE: SITE VISITS (Property/Project Visit Booking)
+// ============================================================
+// Buyer seller se site visit book karta hai — date + time slot
+// ke saath. Book karne ke liye login compulsory hai (guest
+// booking nahi hoti), isliye buyer hamesha User se linked hoga.
+//
+// - userId required: bina login ke visit book nahi kar sakte
+// - sellerId/propertyId/organizationId: sirf optional links —
+//   jo diya ho usse connect ho jata hai
+// - visitDate + startTime/endTime: slot kab hai
+// - status: PENDING → CONFIRMED → COMPLETED
+//   (ya RESCHEDULED / CANCELLED / NO_SHOW)
+// - comment: seller-side internal note (single text)
+// - userAddress: buyer ka address, optional (buyer de bhi sakta hai, na bhi de)
+//
+// Relations:
+//   SiteVisit Many ←→ 1 SellerProfile (optional)
+//   SiteVisit Many ←→ 1 Organization (optional)
+//   SiteVisit Many ←→ 1 User (buyer)
+//   SiteVisit Many ←→ 1 Property (optional)
+// ============================================================
+
+model SiteVisit {
+  id String @id @default(uuid()) @db.Uuid
+
+  // --- Seller Link (optional) ---
+  sellerId String?        @map("seller_id") @db.Uuid
+  seller   SellerProfile? @relation(fields: [sellerId], references: [id], onDelete: SetNull)
+
+  // --- Organization Link (optional) ---
+  organizationId String?       @map("organization_id") @db.Uuid
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+
+  // --- Buyer Link (required) ---
+  // Site visit book karne ke liye login compulsory hai
+  // User delete hoga to uski site visits bhi delete
+  userId String @map("user_id") @db.Uuid
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // --- Property Link (optional) ---
+  // Konse property/project me visit karna hai
+  propertyId String?  @map("property_id") @db.Uuid
+  property   Property? @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+
+  // --- Visit Slot ---
+  visitDate DateTime  @map("visit_date")
+  startTime DateTime  @map("start_time")
+  endTime   DateTime? @map("end_time")
+
+  // --- Buyer Details (booking time snapshot) ---
+  // User se auto-fill hote hain — seller ke paas rahte hain
+  // taaki visit ke time direct contact kar sake
+  name    String
+  email   String?
+  phone   String
+  message String? @db.Text
+
+  // Buyer ka address (optional) — visit location alag ho sakta hai
+  // seller se apne current location par visit karwa sakta hai
+  userAddress String? @map("user_address") @db.Text
+
+  // --- Seller Note ---
+  comment String? @db.Text
+
+  // --- Status ---
+  status SiteVisitStatus @default(PENDING)
+
+  // --- Status Timestamps ---
+  confirmedAt DateTime? @map("confirmed_at")
+  cancelledAt DateTime? @map("cancelled_at")
+
+  // --- Timestamps ---
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([sellerId, status, visitDate])
+  @@index([organizationId])
+  @@index([userId])
+  @@index([propertyId])
+  @@map("site_visits")
+}

@@ -241,3 +241,13 @@ enum BlogCommentStatus {
   PUBLISHED // Public
   HIDDEN // Hata diya
 }
+
+// Site visit booking ka status
+enum SiteVisitStatus {
+  PENDING // Buyer ne request kiya, seller ne confirm nahi kiya
+  CONFIRMED // Seller ne date/time confirm kar diya
+  RESCHEDULED // Date/time change kar diya
+  COMPLETED // Visit ho gaya
+  CANCELLED // Buyer ya seller ne cancel kiya
+  NO_SHOW // Buyer aaya hi nahi
+}

@@ -163,6 +163,10 @@ model SellerProfile {
   // SellerProfile 1 ←→ Many EnquiryForms
   enquiryForms EnquiryForm[]
 
+  // Buyer ki book ki hui site visits
+  // SellerProfile 1 ←→ Many SiteVisits
+  siteVisits SiteVisit[]
+
   // Seller ke blog posts
   // SellerProfile 1 ←→ Many Blog Posts
   blogPosts SellerBlogPost[]

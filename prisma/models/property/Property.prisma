@@ -107,6 +107,10 @@ model Property {
   // Property 1 ←→ Many EnquiryForms
   enquiryForms EnquiryForm[]
 
+  // Property ki site visits
+  // Property 1 ←→ Many SiteVisits
+  siteVisits SiteVisit[]
+
   // BHK configurations (2 BHK, 3 BHK, 4 BHK...) alag price/metrics ke saath
   // Property 1 ←→ Many Variants
   variants PropertyVariant[]
