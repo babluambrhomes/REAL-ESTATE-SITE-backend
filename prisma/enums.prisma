@@ -209,7 +209,16 @@ enum RatingStatus {
 enum EnquiryStatus {
   NEW // Naya enquiry aaya
   CONTACTED // Seller ne contact kiya
-  CLOSED // Resolve ho gaya
+  SITE_VISIT // Buyer site visit pe aaya
+  NEGOTIATION // Deal ki baat chal rahi hai
+  WON // Deal ho gayi
+  LOST // Deal nahi hui
+}
+
+// Lead kahan se aaya
+enum EnquirySource {
+  SELLER_PROFILE // Seller profile page form
+  PROPERTY // Property detail page form
 }
 
 // Seller blog post ka status

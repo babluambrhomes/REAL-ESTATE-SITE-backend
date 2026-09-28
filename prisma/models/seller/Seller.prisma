@@ -159,9 +159,9 @@ model SellerProfile {
   // SellerProfile 1 ←→ Many FAQs
   faqs SellerFaq[]
 
-  // Seller profile form se aaye enquiries/leads
-  // SellerProfile 1 ←→ Many Enquiries
-  enquiries SellerEnquiry[]
+  // Seller profile/property form se aaye enquiries/leads
+  // SellerProfile 1 ←→ Many EnquiryForms
+  enquiryForms EnquiryForm[]
 
   // Seller ke blog posts
   // SellerProfile 1 ←→ Many Blog Posts

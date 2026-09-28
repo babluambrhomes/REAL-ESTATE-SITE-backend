@@ -1,4 +1,4 @@
-export { protect, authorize, authorizePlatformRole } from "./auth.middleware";
+export { protect, optionalAuth, authorize, authorizePlatformRole } from "./auth.middleware";
 export { default as errorHandler } from "./error.middleware";
 export { default as upload, uploadDocument } from "./upload.middleware";
 export { default as validate } from "./validate.middleware";

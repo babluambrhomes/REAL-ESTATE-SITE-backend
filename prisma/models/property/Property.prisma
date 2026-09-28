@@ -104,8 +104,8 @@ model Property {
   deletedAt DateTime? @map("deleted_at") // Soft delete
 
   // Property pe aaye seller enquiries/leads
-  // Property 1 ←→ Many Enquiries
-  enquiries SellerEnquiry[]
+  // Property 1 ←→ Many EnquiryForms
+  enquiryForms EnquiryForm[]
 
   // BHK configurations (2 BHK, 3 BHK, 4 BHK...) alag price/metrics ke saath
   // Property 1 ←→ Many Variants

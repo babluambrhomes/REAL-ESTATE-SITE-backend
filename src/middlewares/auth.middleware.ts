@@ -48,11 +48,6 @@ const protect = async (
 
     const token =
       req.cookies?.accessToken || req.headers.authorization?.split(" ")[1];
-
-      // console.log("Token from cookies:", req.cookies?.accessToken);
-      // console.log("Token from headers:", req.headers.authorization?.split(" ")[1]);
-      
-
     if (!token) {
       throw new ApiError(401, "Not authorized, please login");
     }
@@ -85,6 +80,39 @@ const protect = async (
       return;
     }
     next(error);
+  }
+};
+
+const optionalAuth = async (
+  req: AuthRequest,
+  _res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const token =
+      req.cookies?.accessToken || req.headers.authorization?.split(" ")[1];
+
+    if (!token) {
+      next();
+      return;
+    }
+
+    const decoded = verifyAccessToken(token);
+
+    const user = await prisma.user.findUnique({
+      where: { id: decoded.id },
+      select: userSelect,
+    });
+
+    if (!user || user.status === "SUSPENDED" || user.status === "DEACTIVATED") {
+      next();
+      return;
+    }
+
+    req.user = user as AuthUser;
+    next();
+  } catch {
+    next();
   }
 };
 
@@ -127,4 +155,4 @@ const authorizePlatformRole = (...platformRoleNames: string[]) => {
   };
 };
 
-export { protect, authorize, authorizePlatformRole, userSelect };
+export { protect, optionalAuth, authorize, authorizePlatformRole, userSelect };

@@ -61,13 +61,16 @@ const createAuthResponse = async (
 };
 
 const register = async (data: RegisterInput, userAgent?: string, ipAddress?: string) => {
-  const { email, phone, password, accessToken, firstName } = data;
+  const { email, phone, password, FbTokenId, firstName } = data;
 
   // --- Google Registration ---
-  if (accessToken) {
+  if (FbTokenId) {
+
+    // console.log("FbTokenId",FbTokenId)
     let decoded;
     try {
-      decoded = await firebaseAuth.verifyIdToken(accessToken);
+      decoded = await firebaseAuth.verifyIdToken(FbTokenId.trim());
+      // console.log("decoded",decoded)
     } catch {
       throw new ApiError(401, "Invalid or expired Google token");
     }
@@ -78,7 +81,7 @@ const register = async (data: RegisterInput, userAgent?: string, ipAddress?: str
     const googleName = decoded.name || null;
     const googlePhoto = decoded.picture || null;
 
-    const existingByGoogle = await prisma.user.findUnique({ where: { googleId } });
+    const existingByGoogle = await prisma.user.findUnique({ where: { email: googleEmail } });
     if (existingByGoogle) {
       if (existingByGoogle.status === "SUSPENDED" || existingByGoogle.status === "DEACTIVATED") {
         throw new ApiError(403, "Account is not accessible");
@@ -109,13 +112,9 @@ const register = async (data: RegisterInput, userAgent?: string, ipAddress?: str
     });
 
     // Firebase displayName se first/last name, photoURL se avatar
-    let firstName = googleEmail.split("@")[0];
+    let firstName = googleName || "Hello User";
     let lastName = "";
-    if (googleName) {
-      const nameParts = googleName.trim().split(/\s+/);
-      firstName = nameParts[0] || firstName;
-      lastName = nameParts.slice(1).join(" ") || "";
-    }
+  
 
     await prisma.$transaction(async (tx) => {
       await tx.person.create({
@@ -215,29 +214,28 @@ const register = async (data: RegisterInput, userAgent?: string, ipAddress?: str
 };
 
 const login = async (data: LoginInput, userAgent?: string, ipAddress?: string) => {
-  const { email, phone, password, accessToken } = data;
+  const { email, phone, password, FbTokenId } = data;
 
+  
   // --- Google Login ---
-  if (accessToken) {
+  if (FbTokenId) {
+    //  console.log("FbTokenId",FbTokenId)
     let decoded;
     try {
-      decoded = await firebaseAuth.verifyIdToken(accessToken);
-    } catch {
-      throw new ApiError(401, "Invalid or expired Google token");
-    }
+      // console.log('decoded loaded')
+      decoded = await firebaseAuth.verifyIdToken(FbTokenId.trim());
+        //  console.log("decoded data",decoded)
+    } catch (error) {
+  // console.error("Firebase verifyIdToken error:", error);
+
+  throw new ApiError(401, "Invalid or expired Google token");
+}
 
     const googleEmail = decoded.email;
     if (!googleEmail) throw new ApiError(400, "Email not available from Google account");
 
     let user = await prisma.user.findUnique({ where: { email: googleEmail } });
     if (!user) throw new ApiError(404, "No account found. Please register first.");
-
-    if (!user.googleId) {
-      user = await prisma.user.update({
-        where: { id: user.id },
-        data: { googleId: decoded.uid, emailVerified: true },
-      });
-    }
 
     if (user.status === "SUSPENDED") throw new ApiError(403, "Account has been suspended");
     if (user.status === "DEACTIVATED") throw new ApiError(403, "Account has been deactivated");

@@ -88,6 +88,10 @@ model Organization {
   // Organization 1 ←→ Many Properties
   properties Property[]
 
+  // Organization seller ko aaye leads/enquiries
+  // Organization 1 ←→ Many EnquiryForms
+  enquiryForms EnquiryForm[]
+
   @@index([createdBy])
   @@index([status])
   @@map("organizations")

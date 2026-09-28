@@ -4,16 +4,16 @@ export const registerSchema = z.object({
   email: z.string().email("Enter a valid email").toLowerCase().trim().optional(),
   phone: z.string().min(10, "Enter a valid phone number").max(15, "Enter a valid phone number").trim().optional(),
   password: z.string().min(6, "Password must be at least 6 characters").max(60).optional(),
-  accessToken: z.string().optional(),
+  FbTokenId: z.string().optional(),
   firstName: z.string().min(1, "Enter your first name").trim().optional(),
   lastName: z.string().trim().optional(),
   gender: z.enum(["MALE", "FEMALE", "OTHER"]).optional(),
 }).refine(
-  (d) => d.email || d.phone || d.accessToken,
+  (d) => d.email || d.phone || d.FbTokenId,
   { message: "Email, phone, or Google account is required" }
 ).refine(
   (d) => {
-    if (d.email && !d.accessToken) return !!d.password;
+    if (d.email && !d.FbTokenId) return !!d.password;
     return true;
   },
   { message: "Password is required for email registration" }
@@ -24,15 +24,15 @@ export const loginSchema = z.object({
   phone: z.string().min(10).max(15).trim().optional(),
   password: z.string().optional(),
   code: z.string().length(6, "OTP must be 6 digits").optional(),
-  accessToken: z.string().optional(),
+  FbTokenId: z.string().optional(),
 }).refine(
   (d) => {
     if (d.email && d.password) return true;
-    if (d.accessToken) return true;
+    if (d.FbTokenId) return true;
     if (d.phone) return true;
     return false;
   },
-  { message: "Provide (email+password), (phone), (phone+code), or (accessToken)" }
+  { message: "Provide (email+password), (phone), (phone+code), or (    )" }
 );
 
 export const verifyOtpSchema = z.object({

@@ -1,0 +1,64 @@
+// ============================================================
+// TABLE: ENQUIRY FORMS (Contact/Lead Form)
+// ============================================================
+// User/lead enquiry form bhar kar seller se contact kar sakta hai.
+// Har form submission is table me store hota hai.
+//
+// - userId optional: login nahi kiya to sirf name/email/phone
+// - sellerId/propertyId/organizationId: sirf optional links —
+//   jo diya ho usse connect ho jata hai
+// - source: lead kahan se aaya (seller profile / property page)
+// - status: NEW → CONTACTED → SITE_VISIT → NEGOTIATION → WON/LOST
+// - comment: seller-side internal note (single text)
+//
+// Relations:
+//   EnquiryForm Many ←→ 1 SellerProfile (optional)
+//   EnquiryForm Many ←→ 1 Organization (optional)
+//   EnquiryForm Many ←→ 1 User (optional - buyer)
+//   EnquiryForm Many ←→ 1 Property (optional)
+// ============================================================
+
+model EnquiryForm {
+  id String @id @default(uuid()) @db.Uuid
+
+  // --- Seller Link (optional) ---
+  sellerId String?        @map("seller_id") @db.Uuid
+  seller   SellerProfile? @relation(fields: [sellerId], references: [id], onDelete: SetNull)
+
+  // --- Organization Link (optional) ---
+  organizationId String?       @map("organization_id") @db.Uuid
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+
+  // --- Buyer Link (optional) ---
+  userId String? @map("user_id") @db.Uuid
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  // --- Property Link (optional) ---
+  propertyId String?  @map("property_id") @db.Uuid
+  property   Property? @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+
+  // --- Lead Source ---
+  source EnquirySource @default(SELLER_PROFILE) @map("source")
+
+  // --- Enquiry Form Data ---
+  name    String
+  email   String
+  phone   String?
+  message String? @db.Text
+
+  // --- Seller Note ---
+  comment String? @db.Text
+
+  // --- Status ---
+  status EnquiryStatus @default(NEW)
+
+  // --- Timestamps ---
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([sellerId, status, createdAt])
+  @@index([organizationId])
+  @@index([userId])
+  @@index([propertyId])
+  @@map("enquiry_forms")
+}

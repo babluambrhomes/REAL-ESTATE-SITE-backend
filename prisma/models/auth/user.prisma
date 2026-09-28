@@ -39,7 +39,7 @@ model User {
   following SellerFollow[] @relation("FollowsSeller")
 
   // User ne seller profiles pe jo enquiries/leads bheje
-  sellerEnquiries SellerEnquiry[]
+  enquiryForms EnquiryForm[]
 
   // User ne seller ke blog pe jo posts likhi (author)
   blogPostsWritten SellerBlogPost[] @relation("BlogAuthor")

@@ -14,6 +14,7 @@ import { errorHandler } from "./middlewares";
 import authRouter from "./modules/auth/auth.route";
 import userRouter from "./modules/user/user.route";
 import sellerRouter from "./modules/seller/seller.route";
+import enquiryFormRouter from "./modules/enquiryForm/enquiryForm.route";
 import sellerKycRouter from "./modules/sellerkyc/kyc.route";
 import sellerCategoryRouter from "./modules/sellercategory/sellercategory.route";
 import sellerFaqRouter from "./modules/sellerfaq/sellerfaq.route";
@@ -49,6 +50,7 @@ app.use("/uploads", express.static(path.join(__dirname, "..", "uploads")));
 
 app.use("/api/v1/auth", authRouter);
 app.use("/api/v1/users", userRouter);
+app.use("/api/v1/enquiries", enquiryFormRouter);
 app.use("/api/v1/sellers", sellerRouter);
 app.use("/api/v1/sellers/me/faqs", sellerFaqRouter);
 app.use("/api/v1/sellers/kyc", sellerKycRouter);
