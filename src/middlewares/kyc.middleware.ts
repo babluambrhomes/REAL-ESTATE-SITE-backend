@@ -3,146 +3,128 @@ import prisma from "../config/prisma";
 import { ApiError } from "../utils";
 import { AuthRequest } from "../types";
 import { getRequiredDocs } from "../config/sellerKyc";
-import { SellerType } from "../generated/prisma/enums";
+import { SellerType, VerificationStatus } from "../generated/prisma/enums";
+import { resolveSellerContext } from "../helpers";
 
-const getSeller = async (req: AuthRequest) => {
-  if (!req.user) {
-    throw new ApiError(401, "Not authenticated");
+/**
+ * Which column a KYC document hangs off.
+ *
+ *   INDIVIDUAL   → seller_id       (one person's documents)
+ *   ORGANIZATION → organization_id (the company's documents, shared by all
+ *                                    members — deliberately NOT per member,
+ *                                    since staff turnover should not
+ *                                    invalidate the company's KYC)
+ *
+ * A database CHECK constraint enforces that exactly one of the two is
+ * ever set, so these two branches are the only legal shapes.
+ */
+const getDocOwner = (sellerId: string, sellerType: SellerType, organizationId: string | null) => {
+  if (sellerType === SellerType.ORGANIZATION) {
+    if (!organizationId) {
+      throw new ApiError(409, "Organization seller profile is not linked to an organization");
+    }
+    return { organizationId };
   }
-
-  const seller = await prisma.sellerProfile.findUnique({
-    where: { userId: req.user.id },
-    select: {
-      id: true,
-      sellerType: true,
-      organizationId: true,
-      isActive: true,
-      verificationStatus: true,
-    },
-  });
-
-  if (!seller) {
-    throw new ApiError(403, "You are not registered as a seller");
-  }
-
-  if (!seller.isActive) {
-    throw new ApiError(403, "Your seller account is deactivated");
-  }
-
-  return seller;
+  return { sellerId };
 };
 
-// Document ka owner context decide karo:
-//   INDIVIDUAL seller → sellerId (apne profile ke docs)
-//   ORGANIZATION seller → organizationId (company docs central)
-const getDocOwner = async (seller: {
-  id: string;
-  sellerType: SellerType;
-  organizationId: string | null;
-}): Promise<{ sellerId: string } | { organizationId: string }> => {
-  if (seller.sellerType === SellerType.INDIVIDUAL) {
-    return { sellerId: seller.id };
-  }
-
-  if (!seller.organizationId) {
-    throw new ApiError(400, "Organization not linked to seller account");
-  }
-
-  return { organizationId: seller.organizationId };
-};
-
+/**
+ * Requires the request to have submitted every KYC document its seller
+ * type demands (submission, not approval).
+ */
 const checkKycSubmitted = async (
   req: AuthRequest,
   _res: Response,
   next: NextFunction
 ): Promise<void> => {
   try {
-    const seller = await getSeller(req);
+    if (!req.user) {
+      throw new ApiError(401, "Not authenticated");
+    }
 
-    const requiredDocs = getRequiredDocs(seller.sellerType);
+    const ctx = await resolveSellerContext(req);
+    req.sellerId = ctx.sellerId;
+    req.sellerContext = ctx;
+
+    const requiredDocs = getRequiredDocs(ctx.sellerType);
     if (requiredDocs.length === 0) {
-      (req as any).sellerId = seller.id;
       next();
       return;
     }
 
-    const owner = await getDocOwner(seller);
-
     const submitted = await prisma.sellerVerificationDocument.findMany({
-      where: owner,
+      where: getDocOwner(ctx.sellerId, ctx.sellerType, ctx.organizationId),
       select: { docType: true },
     });
 
     const submittedTypes = new Set(submitted.map((d) => d.docType));
-    const missing = requiredDocs.filter(
-      (r) => !submittedTypes.has(r.docType)
-    );
+    const missing = requiredDocs.filter((r) => !submittedTypes.has(r.docType));
 
     if (missing.length > 0) {
-      throw new ApiError(400, `KYC documents pending: ${missing.map((m) => m.displayLabel).join(", ")}`);
+      throw new ApiError(
+        400,
+        `KYC documents pending: ${missing.map((m) => m.displayLabel).join(", ")}`
+      );
     }
 
-    (req as any).sellerId = seller.id;
     next();
   } catch (error) {
     next(error);
   }
 };
 
+/**
+ * Requires the acting selling entity to be verified.
+ *
+ * For organizations that means Organization.verificationStatus, because a
+ * company listing is a claim about the company rather than about whoever
+ * happens to be logged in.
+ */
 const checkKycVerified = async (
   req: AuthRequest,
   _res: Response,
   next: NextFunction
 ): Promise<void> => {
   try {
-    const seller = await getSeller(req);
+    if (!req.user) {
+      throw new ApiError(401, "Not authenticated");
+    }
 
-    const isVerified = async () => {
-      // ORGANIZATION seller → org level verification check
-      if (seller.sellerType === SellerType.ORGANIZATION) {
-        if (!seller.organizationId) {
-          return false;
-        }
-        const org = await prisma.organization.findUnique({
-          where: { id: seller.organizationId },
-          select: { verificationStatus: true },
-        });
-        return org?.verificationStatus === "VERIFIED";
-      }
+    const ctx = await resolveSellerContext(req);
+    req.sellerId = ctx.sellerId;
+    req.sellerContext = ctx;
 
-      // INDIVIDUAL seller → profile level verification check
-      return seller.verificationStatus === "VERIFIED";
-    };
+    const verificationStatus =
+      ctx.organizationVerificationStatus ?? ctx.verificationStatus;
 
-    if (await isVerified()) {
-      (req as any).sellerId = seller.id;
+    if (verificationStatus === VerificationStatus.VERIFIED) {
       next();
       return;
     }
 
-    const requiredDocs = getRequiredDocs(seller.sellerType);
+    const requiredDocs = getRequiredDocs(ctx.sellerType);
     if (requiredDocs.length === 0) {
       throw new ApiError(403, "Seller KYC verification required for this action");
     }
 
-    const owner = await getDocOwner(seller);
-
     const docs = await prisma.sellerVerificationDocument.findMany({
-      where: owner,
+      where: getDocOwner(ctx.sellerId, ctx.sellerType, ctx.organizationId),
       select: { docType: true, status: true },
     });
 
     const verifiedTypes = new Set(
-      docs.filter((d) => d.status === "VERIFIED").map((d) => d.docType)
+      docs.filter((d) => d.status === VerificationStatus.VERIFIED).map((d) => d.docType)
     );
 
     const missing = requiredDocs.filter((r) => !verifiedTypes.has(r.docType));
 
     if (missing.length > 0) {
-      throw new ApiError(403, `Seller KYC verification required. Pending: ${missing.map((m) => m.displayLabel).join(", ")}`);
+      throw new ApiError(
+        403,
+        `Seller KYC verification required. Pending: ${missing.map((m) => m.displayLabel).join(", ")}`
+      );
     }
 
-    (req as any).sellerId = seller.id;
     next();
   } catch (error) {
     next(error);

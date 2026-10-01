@@ -1,0 +1,209 @@
+
+1. Har registered user by default Buyer
+
+Registration ke time:
+
+User
+ │
+ ├── Person
+ │
+ └── BuyerProfile
+
+Example:
+
+User	Person	BuyerProfile	SellerProfile	Organization Member
+Monit	✅	✅	❌	❌
+Sohan	✅	✅	❌	❌
+Amit	✅	✅	❌	❌
+
+Matlab registration = Buyer.
+
+Condition 1 — User khud Individual Seller banna chahta hai
+
+Monit bolta hai:
+
+"Main individually property sell karna chahta hoon."
+
+Tab:
+
+Monit
+ │
+ ├── Person
+ ├── BuyerProfile
+ │
+ └── SellerProfile
+      sellerType = INDIVIDUAL
+      userId = Monit
+      organizationId = NULL
+
+Table:
+
+User	Buyer	Seller	Seller Type
+Monit	✅	✅	INDIVIDUAL
+Sohan	✅	❌	—
+Amit	✅	❌	—
+
+Yahan Monit khud seller entity hai.
+
+Condition 2 — User Organization create karta hai
+
+Sohan bolta hai:
+
+"Mere paas ek company/organization hai. Main khud individual seller nahi hoon."
+
+To:
+
+Sohan (User)
+ │
+ ├── Person
+ ├── BuyerProfile
+ │
+ └── OrganizationMember
+       role = OWNER
+            │
+            ▼
+       Sohan Company
+            │
+            └── SellerProfile
+                 sellerType = ORGANIZATION
+
+Database:
+
+users
+id	name
+U1	Monit
+U2	Sohan
+organizations
+id	name	createdBy
+O1	Sohan Company	U2
+seller_profiles
+id	sellerType	userId	organizationId
+SP1	INDIVIDUAL	U1	NULL
+SP2	ORGANIZATION	NULL	O1
+
+Important: Sohan ko individual SellerProfile nahi mila.
+
+SellerProfile Sohan Company ki hai, Sohan ki nahi.
+
+Condition 3 — Organization ke employees
+
+Ab Sohan Company mein:
+
+Sohan → OWNER
+Amit → AGENT
+Ravi → STAFF
+Neha → ADMIN
+
+Ye sab Organization Members hain.
+
+Sohan Company
+│
+├── SellerProfile
+│
+├── Sohan
+│    └── OWNER
+│
+├── Amit
+│    └── AGENT
+│
+├── Ravi
+│    └── STAFF
+│
+└── Neha
+     └── ADMIN
+
+Table:
+
+organization_members
+user	organization	role
+Sohan	Sohan Company	OWNER
+Amit	Sohan Company	AGENT
+Ravi	Sohan Company	STAFF
+Neha	Sohan Company	ADMIN
+
+In employees ko automatically SellerProfile nahi milegi.
+
+Because:
+
+Employee ≠ Seller
+
+Seller hai:
+
+Sohan Company
+     ↓
+SellerProfile
+
+Employee sirf company ko operate karta hai.
+
+Aur sabse important: Employee bhi Buyer hai
+
+Amit jab normal registration karega:
+
+Amit
+ │
+ ├── Person
+ └── BuyerProfile
+
+Baad mein Sohan usko invite kare:
+
+Amit
+ │
+ ├── BuyerProfile
+ │
+ └── OrganizationMember
+       │
+       └── Sohan Company
+             role = AGENT
+
+Amit Buyer bhi hai + Organization Member bhi hai.
+
+Usko seller banne ki zarurat nahi hai.
+
+Final architecture
+                         USER
+                          │
+                 ┌────────┴────────┐
+                 │                 │
+             BUYERPROFILE      SELLERPROFILE
+                 │                 │
+              Everyone       Only when user
+                 │            becomes seller
+                 │                 │
+                 │          ┌──────┴───────┐
+                 │          │              │
+                 │      INDIVIDUAL    ORGANIZATION
+                 │          │              │
+                 │        User        Organization
+                 │                         │
+                 │                         │
+                 └──────────────┐          │
+                                │          │
+                         ORGANIZATION MEMBER
+                                │
+                         ┌──────┴──────┐
+                         │             │
+                       OWNER         EMPLOYEE
+Simple rule yaad rakho
+Entity	SellerProfile?	BuyerProfile?
+Normal User	❌	✅
+Individual Seller	✅	✅
+Organization Owner	❌*	✅
+Organization	✅	❌
+Organization Employee	❌	✅
+Organization Agent	❌	✅
+
+* Organization Owner ko individual SellerProfile nahi milegi, jab tak woh separately individual seller na bane.
+
+Iska core principle
+
+User = person/account
+
+BuyerProfile = har registered user ka buyer identity
+
+SellerProfile = actual selling entity
+
+Organization = company/business entity
+
+OrganizationMember = user ka company ke andar relationship
+
+Is design mein "Sohan" aur "Sohan Company" ko mix nahi kiya jayega. यही आपके पूरे system का सबसे important separation है.

@@ -28,4 +28,28 @@ const validate = (
   };
 };
 
+// Query parse karne ka shared helper — parsed result req.validatedQuery me store
+// hota hai (req.query touch nahi hota), controller usse padhta hai.
+const parseQuery = (schema: z.ZodSchema) => {
+  return (req: Request, _res: Response, next: NextFunction) => {
+    const result = schema.safeParse(req.query);
+
+    if (!result.success) {
+      const errors = result.error.issues.map((issue) => ({
+        field: issue.path.join(".") || "root",
+        message: issue.message,
+        code: issue.code,
+      }));
+
+      return next(
+        new ApiError(400, "Validation failed", errors)
+      );
+    }
+
+    (req as any).validatedQuery = result.data;
+    next();
+  };
+};
+
 export default validate;
+export { parseQuery };

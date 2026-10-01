@@ -8,7 +8,44 @@ enum UserStatus {
   PENDING
   ACTIVE // Account chalu hai
   SUSPENDED // Temporarily band hai (Admin ne kiya)
-  DEACTIVATED // User ne khud band kiya
+  DEACTIVATED // User ne khud band kiya / soft delete
+}
+
+// ============================================================
+// LIFECYCLE ENUMS (soft delete states)
+// ============================================================
+// Har model ka apna ek lifecycle enum hai - isse alag
+// "deleted" boolean ya "deletedAt" timestamp nahi rakhte.
+// Reason: boolean + timestamp dono me drift ho sakta hai
+// (isActive=false par deletedAt=null) aur phir do alag code
+// paths do alag answer de dete hain.
+//
+// DELETED = soft delete. Row kabhi physically delete nahi hoti.
+// Ye DELETED state ko UNIQUE banata hai:
+//   User          → UserStatus.DEACTIVATED
+//   Organization  → OrganizationStatus.DEACTIVATED
+//   Member        → MemberStatus.REMOVED
+//   BlogPost      → BlogStatus.ARCHIVED
+//   Property      → ListingStatus.DELETED
+//   SellerProfile → SellerStatus.DELETED
+//   BuyerProfile  → BuyerStatus.DELETED
+
+// SellerProfile ka lifecycle - selling entity ki state
+// User.status se ALAG hai: user ACTIVE ho sakta hai jabki uska
+// seller profile SUSPENDED ho sakta hai (platform ne seller ko ban kiya)
+
+
+enum SellerStatus {
+  ACTIVE
+  SUSPENDED // Platform ne seller profile temporarily band kiya
+  DELETED // Soft delete
+}
+
+// BuyerProfile ka lifecycle - buying state
+enum BuyerStatus {
+  ACTIVE
+  SUSPENDED // Buying temporarily band (platform action)
+  DELETED // Soft delete
 }
 
 // Seller ka type - Individual ya Organization
@@ -152,6 +189,7 @@ enum ListingStatus {
   PAUSED
   EXPIRED
   REJECTED
+  DELETED // Soft delete — listing hamesha ke liye hidden, kabhi physically delete nahi hota
 }
 
 // Furnishing status
@@ -205,9 +243,9 @@ enum RatingStatus {
   HIDDEN // Moderation ne hata diya
 }
 
-// Buyer/seller profile form enquiry ka status
-enum EnquiryStatus {
-  NEW // Naya enquiry aaya
+// Buyer/seller profile form lead ka status
+enum LeadStatus {
+  NEW // Naya lead aaya
   CONTACTED // Seller ne contact kiya
   SITE_VISIT // Buyer site visit pe aaya
   NEGOTIATION // Deal ki baat chal rahi hai
@@ -215,10 +253,13 @@ enum EnquiryStatus {
   LOST // Deal nahi hui
 }
 
-// Lead kahan se aaya
-enum EnquirySource {
-  SELLER_PROFILE // Seller profile page form
-  PROPERTY // Property detail page form
+// Lead kahan se aaya (action jahan se kiya gaya)
+enum LeadSource {
+  ENQUIRY_FORM // Enquiry/lead form
+  WHATSAPP // WhatsApp button se lead
+  CALL_NOW // Call now button se lead
+  REQUEST_CALL_BACK // "Call me back" request
+  CONTACT // Contact page / general contact
 }
 
 // Seller blog post ka status
@@ -250,4 +291,11 @@ enum SiteVisitStatus {
   COMPLETED // Visit ho gaya
   CANCELLED // Buyer ya seller ne cancel kiya
   NO_SHOW // Buyer aaya hi nahi
+}
+
+// Buyer ke sawal ka status (buyer → seller direct question)
+enum BuyerQuestionStatus {
+  PENDING // Buyer ne poocha, seller ne abhi jawab nahi diya
+  ANSWERED // Seller ne jawab de diya
+  CLOSED // Baat ho gayi / band kar diya
 }

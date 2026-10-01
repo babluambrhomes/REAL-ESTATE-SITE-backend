@@ -23,6 +23,17 @@ model User {
   sellerProfile        SellerProfile?
   createdOrganizations Organization[]
 
+  // Properties is user ne create ki (userId = creator).
+  // NOTE: pehle Property.sellerId mandatory SellerProfile se linked tha,
+  // ab ownership userId + organizationId se decide hoti hai.
+  //
+  //   Individual seller (Monit)  → userId=Monit, organizationId=NULL
+  //   Org member (Amit @ O1)    → userId=Amit,  organizationId=O1
+  //
+  // Isi wajah se ye relation alag naam ("PropertyCreator") se hai —
+  // verifiedBy ke saath dono User se hain, dono ko alag relation chahiye.
+  createdProperties Property[] @relation("PropertyCreator")
+
   // Is user ne kaunsi organizations/sellers/documents verify kiye (platform staff)
   verifiedOrganizations      Organization[]               @relation("VerifiedOrganization")
   verifiedSellerProfiles     SellerProfile[]              @relation("VerifiedSeller")
@@ -38,11 +49,17 @@ model User {
   // User ne kin sellers/orgs ko follow kiya
   following SellerFollow[] @relation("FollowsSeller")
 
-  // User ne seller profiles pe jo enquiries/leads bheje
-  enquiryForms EnquiryForm[]
+  // User ne seller profiles pe jo leads/enquiries bheje
+  leadForms LeadForm[]
+
+  // User ne organizations ki "Interested in this organization?" form bhari
+  organizationInquiries OrganizationInquiry[]
 
   // User ne book kiye hue site visits
   siteVisits SiteVisit[]
+
+  // User ne sellers ko directly pooche hue sawaal (seller ke jawab ke saath)
+  buyerQuestions BuyerQuestion[]
 
   // User ne seller ke blog pe jo posts likhi (author)
   blogPostsWritten SellerBlogPost[] @relation("BlogAuthor")

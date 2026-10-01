@@ -1,0 +1,84 @@
+// ============================================================
+// TABLE: LEAD FORMS (Global Lead Generation)
+// ============================================================
+// Buyer seller se contact karta hai — form, call ya whatsapp ke
+// saare actions se lead create hota hai. Ek global lead hub.
+// Login mandatory hai (guest lead nahi bhej sakta), isliye buyer
+// hamesha User se linked hota hai.
+//
+// - userId linked: login ke baad hi lead bheja ja sakta hai
+// - sellerId/organizationId: optional links — ATTRIBUTION
+//   (lead kis public seller profile / kis org se aayi)
+// - assignedToMemberId: optional — ORG sellers ke liye manual assignment.
+//   Lead pehle org ke shared pool me aati hai (assignedToMemberId NULL),
+//   phir Owner/Admin kisi member ko assign karta hai.
+//   INDIVIDUAL seller ke liye hamesha NULL.
+// - source: lead kahan se aaya (ENQUIRY_FORM / WHATSAPP / CALL_NOW
+//   / REQUEST_CALL_BACK / CONTACT) — isi se pata chalta hai ki
+//   action kaha se hua
+// - status: NEW → CONTACTED → SITE_VISIT → NEGOTIATION → WON/LOST
+// - comment: seller-side internal note (single text)
+//
+// NOTE: sellerId yahan REHTI hai (Property se alag). Ye lead ka
+// target hai — property ki ownership se independent.
+// ============================================================
+
+model LeadForm {
+  id String @id @default(uuid()) @db.Uuid
+
+  // --- Seller Link (optional) ---
+  sellerId String?        @map("seller_id") @db.Uuid
+  seller   SellerProfile? @relation(fields: [sellerId], references: [id], onDelete: SetNull)
+
+  // --- Organization Link (optional) ---
+  organizationId String?       @map("organization_id") @db.Uuid
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+
+  // --- Buyer Link (optional at DB level) ---
+  // Login mandatory hai to hamesha set hota hai; purane records me
+  // null ho sakta hai (isliye nullable), code level pe enforce hota hai
+  userId String? @map("user_id") @db.Uuid
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  // --- Property Link (optional) ---
+  propertyId String?  @map("property_id") @db.Uuid
+  property   Property? @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+
+  // --- Manual Assignment (optional) ---
+  // ORG sellers ke liye: lead org ke shared pool me aati hai
+  // (sellerId = org ka public SellerProfile, assignedToMemberId = NULL).
+  // Owner/Admin phir kisi member ko assign kar sakta hai.
+  //
+  // INDIVIDUAL sellers ke liye ye hamesha NULL rehta hai —
+  // unki koi member list hi nahi hoti, lead seedhi unki hai.
+  assignedToMemberId String? @map("assigned_to_member_id") @db.Uuid
+  assignedToMember   Member? @relation("LeadAssignee", fields: [assignedToMemberId], references: [id], onDelete: SetNull)
+
+  // --- Lead Source ---
+  source LeadSource @default(ENQUIRY_FORM) @map("source")
+
+// --- Lead Data ---
+  // name + phone required — lead ka contact info; email optional
+  name    String
+  email   String?
+  phone   String
+  message String? @db.Text
+
+  // --- Seller Note ---
+  comment String? @db.Text
+
+  // --- Status ---
+  status LeadStatus @default(NEW)
+
+  // --- Timestamps ---
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([sellerId, status, createdAt])
+  @@index([organizationId])
+  @@index([userId])
+  @@index([propertyId])
+  // "my leads" — assigned member ke hisaab se filter
+  @@index([assignedToMemberId, status])
+  @@map("lead_forms")
+}

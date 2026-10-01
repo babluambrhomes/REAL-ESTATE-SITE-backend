@@ -1,0 +1,76 @@
+// ============================================================
+// TABLE: BUYER QUESTIONS (Buyer → Seller Sawaal-Jawaab)
+// ============================================================
+// Buyer seller se directly sawal puchhta hai — seller profile page
+// se ya kisi property page se. Ye uska "lead" bhi hota hai.
+// Poochne ke liye login compulsory hai (guest nahi pooch sakta),
+// isliye buyer hamesha User se linked hota hai.
+//
+// - userId required: bina login ke sawal nahi pooch sakte
+// - sellerId required: sawal hamesha ek seller ko jata hai
+//   (property se poocha ho tab property se seller resolve hota hai)
+// - propertyId optional: property page se poocha ya nahi —
+//   seller profile se poochne par ye null rahega
+// - question + answer: buyer ka sawal aur seller ka jawab
+// - answer sirf usi buyer ko dikhta hai (buyer dashboard me) —
+//   public/FAQ me convert karne ka koi feature nahi
+// - status: PENDING → ANSWERED → CLOSED
+//
+// Relations:
+//   BuyerQuestion Many ←→ 1 User (buyer)
+//   BuyerQuestion Many ←→ 1 SellerProfile
+//   BuyerQuestion Many ←→ 1 Property (optional)
+// ============================================================
+
+model BuyerQuestion {
+  id String @id @default(uuid()) @db.Uuid
+
+  // --- Buyer Link (required) ---
+  // Sawal poochne ke liye login compulsory hai
+  // User delete hoga to uske saare sawaal bhi delete
+  userId String @map("user_id") @db.Uuid
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // --- Seller Link (required) ---
+  // Sawal hamesha seller ko jata hai — seller delete ho to
+  // buyer ke saare sawaal bhi uske saath chale jayenge
+  sellerId String        @map("seller_id") @db.Uuid
+  seller   SellerProfile @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+
+  // --- Property Link (optional) ---
+  // Property page se poocha tab set hota hai; seller profile
+  // se poocha tab null rahega
+  propertyId String?  @map("property_id") @db.Uuid
+  property   Property? @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+
+  // --- Manual Assignment (optional) ---
+  // ORG seller: sawal org ke shared inbox me aata hai, phir kisi
+  // member ko assign kiya ja sakta hai.
+  // INDIVIDUAL seller ke liye hamesha NULL.
+  assignedToMemberId String? @map("assigned_to_member_id") @db.Uuid
+  assignedToMember   Member? @relation("BuyerQuestionAssignee", fields: [assignedToMemberId], references: [id], onDelete: SetNull)
+
+  // --- Content ---
+  question String  @db.Text
+  answer   String? @db.Text
+
+  // --- Status ---
+  status BuyerQuestionStatus @default(PENDING)
+
+  // --- Status Timestamps ---
+  answeredAt DateTime? @map("answered_at")
+
+  // --- Timestamps ---
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Buyer's dashboard (uske saare sawaal)
+  @@index([userId, createdAt])
+  // Seller ka inbox (unanswered pehle)
+  @@index([sellerId, status, createdAt])
+  // Property-wise filtering
+  @@index([propertyId])
+  // "my questions" — assigned member ke hisaab se filter
+  @@index([assignedToMemberId, status])
+  @@map("buyer_questions")
+}

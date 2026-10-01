@@ -1,13 +1,31 @@
+import {
+  propertyCardSelect,
+  propertyDetailSelect,
+  toCard,
+  asImageList,
+  PUBLIC_PROPERTY_STATUSES,
+} from "./property.select";
+
 import path from "path";
 import fs from "fs/promises";
 import slugify from "slugify";
 import prisma from "../../config/prisma";
 import { ApiError } from "../../utils";
-import { getPaginationParams, buildPagination, generateTimestampSuffix, isUniqueViolation, withUniqueRetry } from "../../helpers";
+import {
+  getPaginationParams,
+  buildPagination,
+  generateTimestampSuffix,
+  isUniqueViolation,
+  withUniqueRetry,
+  ownedPropertyWhere,
+  ownedPropertyRelation,
+  assertRequestedOrgMatchesContext,
+} from "../../helpers";
 import { processImage } from "../../workers/image/imageWorker.pool";
 import { uploadFile, deleteCloudinaryFile, isCloudinaryUrl } from "../../helpers/cloudinary.helper";
-import { PropertyStatus } from "../../generated/prisma/enums";
+import { PropertyStatus, ListingStatus, VerificationStatus } from "../../generated/prisma/enums";
 import { Prisma } from "../../generated/prisma/client";
+import { SellerContext } from "../../types";
 import {
   CreatePropertyInput,
   UpdatePropertyInput,
@@ -15,148 +33,6 @@ import {
   UpdateVariantInput,
   ListQueryInput,
 } from "./property.validation";
-
-const propertyCardSelect: Prisma.PropertySelect = {
-  id: true,
-  propertyCode: true,
-  title: true,
-  slug: true,
-  description: true,
-  transactionType: true,
-  propertyType: true,
-  propertyStatus: true,
-  city: true,
-  state: true,
-  pincode: true,
-  images: true,
-  isFeatured: true,
-  isVerified: true,
-  viewsCount: true,
-  likesCount: true,
-  averageRating: true,
-  ratingCount: true,
-  createdAt: true,
-  seller: {
-    select: {
-      id: true,
-      referenceCode: true,
-      slug: true,
-      sellerType: true,
-      headline: true,
-      logoUrl: true,
-    },
-  },
-  variants: {
-    where: { isActive: true },
-    orderBy: { price: "asc" },
-    select: {
-      id: true,
-      variantName: true,
-      bedrooms: true,
-      price: true,
-      mrpPrice: true,
-      pricePerSqft: true,
-      totalArea: true,
-      totalAreaUnit: true,
-      furnishingStatus: true,
-      availabilityStatus: true,
-      isAvailable: true,
-      images: true,
-    },
-  },
-};
-
-const propertyDetailSelect: Prisma.PropertySelect = {
-  ...propertyCardSelect,
-  addressLine: true,
-  country: true,
-  latitude: true,
-  longitude: true,
-  googleMapLink: true,
-  ownershipType: true,
-  listedBy: true,
-  ageOfProperty: true,
-  amenities: true,
-  nearbyPlaces: true,
-  societyInfo: true,
-  videos: true,
-  reraNumber: true,
-  registrationNumber: true,
-  taxAssessment: true,
-  encumbrance: true,
-  contactName: true,
-  contactPhone: true,
-  contactEmail: true,
-  metaTitle: true,
-  metaDescription: true,
-  metaKeywords: true,
-  isActive: true,
-  verifiedAt: true,
-  updatedAt: true,
-  variants: {
-    where: { isActive: true },
-    orderBy: [{ displayOrder: "asc" }, { price: "asc" }],
-    select: {
-      id: true,
-      variantName: true,
-      variantCode: true,
-      bedrooms: true,
-      bathrooms: true,
-      balconies: true,
-      price: true,
-      mrpPrice: true,
-      pricePerSqft: true,
-      totalArea: true,
-      totalAreaUnit: true,
-      carpetArea: true,
-      carpetAreaUnit: true,
-      superBuiltUpArea: true,
-      superBuiltUpAreaUnit: true,
-      plotArea: true,
-      plotAreaUnit: true,
-      floorNumber: true,
-      totalFloors: true,
-      availabilityStatus: true,
-      possessionDate: true,
-      isAvailable: true,
-      inventoryCount: true,
-      furnishingStatus: true,
-      furnishingItems: true,
-      images: true,
-      brochure: true,
-      displayOrder: true,
-    },
-  },
-  faqs: {
-    where: { isActive: true },
-    orderBy: { displayOrder: "asc" },
-    select: { id: true, question: true, answer: true, displayOrder: true },
-  },
-};
-
-const asImageList = (
-  value: unknown
-): { url: string; isFeatured?: boolean }[] => {
-  if (!Array.isArray(value)) return [];
-  return value as { url: string; isFeatured?: boolean }[];
-};
-
-const toCard = (property: any) => {
-  const images: { url: string; isFeatured?: boolean }[] = asImageList(property.images);
-  const featuredImage =
-    images.find((i) => i.isFeatured)?.url ?? images[0]?.url ?? null;
-  const minPrice = property.variants?.[0]?.price ?? null;
-
-  const { images: _imgs, variants: _variants, ...rest } = property;
-
-  return {
-    ...rest,
-    minPrice,
-    featuredImage,
-    imagesCount: images.length,
-    variants: property.variants,
-  };
-};
 
 const generatePropertyCode = (): string => `PROP-${generateTimestampSuffix()}`;
 
@@ -167,10 +43,23 @@ const generateUniqueSlug = (title: string): string => {
   return `${base}-${Date.now()}${Math.floor(100 + Math.random() * 900)}`;
 };
 
-const ensureOwnProperty = async (sellerId: string, propertyId: string) => {
+/**
+ * Loads a property the acting context is allowed to manage.
+ *
+ * Throws 404 rather than 403 when the property exists but belongs to
+ * someone else: telling an attacker "this ID exists but is not yours"
+ * turns the endpoint into an ID oracle for the whole listing table.
+ */
+const ensureOwnProperty = async (ctx: SellerContext, propertyId: string) => {
   const property = await prisma.property.findFirst({
-    where: { id: propertyId, sellerId, deletedAt: null },
-    select: { id: true, title: true, organizationId: true },
+    where: { ...ownedPropertyWhere(ctx), id: propertyId },
+    select: {
+      id: true,
+      title: true,
+      userId: true,
+      organizationId: true,
+      listingStatus: true,
+    },
   });
 
   if (!property) {
@@ -180,9 +69,9 @@ const ensureOwnProperty = async (sellerId: string, propertyId: string) => {
   return property;
 };
 
-const findOwnPropertyWithImages = async (sellerId: string, propertyId: string) => {
+const findOwnPropertyWithImages = async (ctx: SellerContext, propertyId: string) => {
   const property = await prisma.property.findFirst({
-    where: { id: propertyId, sellerId, deletedAt: null },
+    where: { ...ownedPropertyWhere(ctx), id: propertyId },
     select: { id: true, images: true },
   });
 
@@ -194,7 +83,7 @@ const findOwnPropertyWithImages = async (sellerId: string, propertyId: string) =
 };
 
 const ensureOwnVariant = async (
-  sellerId: string,
+  ctx: SellerContext,
   propertyId: string,
   variantId: string,
   select?: { id?: boolean; images?: boolean }
@@ -202,7 +91,8 @@ const ensureOwnVariant = async (
   const variant = await prisma.propertyVariant.findFirst({
     where: {
       id: variantId,
-      property: { id: propertyId, sellerId, deletedAt: null },
+      property: ownedPropertyRelation(ctx),
+      ...propertyId ? { propertyId } : {},
     },
     select: select ?? { id: true },
   });
@@ -212,19 +102,6 @@ const ensureOwnVariant = async (
   }
 
   return variant;
-};
-
-const ensureOrgOwnership = async (sellerId: string, organizationId?: string) => {
-  if (!organizationId) return;
-
-  const seller = await prisma.sellerProfile.findUnique({
-    where: { id: sellerId },
-    select: { organizationId: true },
-  });
-
-  if (seller?.organizationId !== organizationId) {
-    throw new ApiError(400, "Organization does not belong to this seller");
-  }
 };
 
 const processPropertyImages = async (files: Express.Multer.File[]) => {
@@ -271,21 +148,20 @@ const processPropertyImages = async (files: Express.Multer.File[]) => {
   return urls;
 };
 
-const createProperty = async (
-  sellerId: string,
-  data: CreatePropertyInput
-) => {
-  await ensureOrgOwnership(sellerId, data.organizationId);
+const createProperty = async (ctx: SellerContext, data: CreatePropertyInput) => {
+  // `organizationId` in the body only SELECTS the acting context; the
+  // value actually stored always comes from the resolved context, so a
+  // caller cannot attribute a listing to a company they do not belong to.
+  assertRequestedOrgMatchesContext(ctx, data.organizationId);
 
-  const { variants, ...propertyData } = data;
+  const { variants, organizationId: _requestedOrg, ...propertyData } = data;
 
-  // ✅ Build create data explicitly
-  const createData = {
+  const createData: Prisma.PropertyUncheckedCreateInput = {
     title: propertyData.title,
     description: propertyData.description,
     transactionType: propertyData.transactionType,
-    propertyType: propertyData.propertyType || 'APARTMENT', // ✅ Force set
-    propertyStatus: propertyData.propertyStatus || 'AVAILABLE',
+    propertyType: propertyData.propertyType ?? "APARTMENT",
+    propertyStatus: propertyData.propertyStatus ?? PropertyStatus.AVAILABLE,
     addressLine: propertyData.addressLine,
     city: propertyData.city,
     state: propertyData.state,
@@ -309,17 +185,24 @@ const createProperty = async (
     metaKeywords: propertyData.metaKeywords,
     propertyCode: generatePropertyCode(),
     slug: generateUniqueSlug(propertyData.title),
-    sellerId,
+    // Ownership: creator + whichever organization (if any) they are
+    // acting through. Both are set for org members.
+    userId: ctx.userId,
+    organizationId: ctx.organizationId,
+    // New listings start unpublished. Publishing is a separate,
+    // permission-gated transition so a seller cannot self-publish
+    // something that has not been reviewed.
+    listingStatus: ListingStatus.DRAFT,
+    verificationStatus: VerificationStatus.PENDING,
     amenities: propertyData.amenities ?? [],
     nearbyPlaces: propertyData.nearbyPlaces ?? [],
     societyInfo: propertyData.societyInfo ?? {},
   };
-  
 
   return withUniqueRetry(() =>
     prisma.$transaction(async (tx) => {
       const property = await tx.property.create({
-        data: createData, // ✅ Use the explicit object
+        data: createData,
         select: { id: true },
       });
 
@@ -352,22 +235,29 @@ const listPublicProperties = async (query: ListQueryInput) => {
   if (query.availabilityStatus) variantFilter.availabilityStatus = query.availabilityStatus;
 
   const where: Record<string, unknown> = {
-    deletedAt: null,
-    isActive: true,
-    propertyStatus: {
-      notIn: [PropertyStatus.DRAFT, PropertyStatus.WITHDRAWN],
-    },
+    // Public visibility is an ALLOWLIST, not a denylist.
+    //
+    // Written as `in: PUBLIC_PROPERTY_STATUSES` rather than
+    // `notIn: [DRAFT, WITHDRAWN]` on purpose: a new PropertyStatus added to
+    // the enum later (RESERVED, coming-soon, anything) becomes visible to
+    // every visitor by default with the denylist form. With the allowlist it
+    // stays hidden until someone decides it is public.
+    //
+    // It also mirrors properties_public_search_idx, which is a partial index
+    // on listing_status = 'PUBLISHED' AND property_status IN
+    // ('AVAILABLE','UNDER_OFFER'). The index is on listing_status and
+    // created_at; a broader predicate would simply fall back to a seq scan
+    // for no benefit, since published listings are overwhelmingly AVAILABLE.
+    listingStatus: ListingStatus.PUBLISHED,
+    propertyStatus: { in: PUBLIC_PROPERTY_STATUSES },
   };
 
   if (query.transactionType) where.transactionType = query.transactionType;
   if (query.propertyType) where.propertyType = query.propertyType;
   if (query.propertyStatus) {
-    // DRAFT/WITHDRAWN kabhi public listing me nahi dikhne chahiye —
-    // default NOT IN override hone se rokte hain.
-    if (
-      query.propertyStatus !== PropertyStatus.DRAFT &&
-      query.propertyStatus !== PropertyStatus.WITHDRAWN
-    ) {
+    // Narrowing to a non-public status must not widen visibility, so a
+    // requested status has to be on the public allowlist to replace it.
+    if (PUBLIC_PROPERTY_STATUSES.includes(query.propertyStatus)) {
       where.propertyStatus = query.propertyStatus;
     }
   }
@@ -376,7 +266,14 @@ const listPublicProperties = async (query: ListQueryInput) => {
   if (query.pincode) where.pincode = { contains: query.pincode };
   if (query.isFeatured) where.isFeatured = query.isFeatured === "true";
   if (query.q) where.title = { contains: query.q, mode: "insensitive" };
-  if (query.sellerSlug) where.seller = { slug: query.sellerSlug };
+  if (query.sellerSlug) {
+    // SellerProfile is no longer reachable from Property directly, so a
+    // seller page is "either my profile or my organization's profile".
+    where.OR = [
+      { user: { sellerProfile: { slug: query.sellerSlug } } },
+      { organization: { sellerProfile: { slug: query.sellerSlug } } },
+    ];
+  }
   if (Object.keys(variantFilter).length > 0) {
     // Variant filter sirf ACTIVE variants pe lagna chahiye — warna inactive
     // variant filter-eligible property la dega (sort MIN(price) se mismatch).
@@ -410,9 +307,20 @@ const listPublicProperties = async (query: ListQueryInput) => {
     const direction = query.sort === "price_asc" ? "ASC" : "DESC";
 
     const clauses: string[] = [
-      'p."deleted_at" IS NULL',
-      'p."is_active" = true',
-      "p.\"property_status\" NOT IN ('DRAFT', 'WITHDRAWN')",
+      // MUST mirror the Prisma `where` above — this raw path only re-orders
+      // ids, and the Prisma fetch after it re-filters with the real `where`.
+      // If these two ever drift the symptom is "pagination is wrong on
+      // price sort only", which is a miserable bug to track down.
+      //
+      // The status list is interpolated from PUBLIC_PROPERTY_STATUSES rather
+      // than written out here, so the raw path cannot drift from the Prisma
+      // path. The values are enum members, never user input.
+      'p."listing_status" = \'PUBLISHED\'',
+      // Interpolated, not parameterised: these are enum members fixed at
+      // compile time, never user input.
+      `p."property_status" IN (${PUBLIC_PROPERTY_STATUSES.map(
+        (s) => `'${s}'`
+      ).join(", ")})`,
     ];
     const params: unknown[] = [];
 
@@ -427,9 +335,10 @@ const listPublicProperties = async (query: ListQueryInput) => {
     add((n) => `p."property_type" = $${n}`, query.propertyType);
     add(
       (n) => `p."property_status" = $${n}`,
+      // Same allowlist as the Prisma path — a caller asking for DRAFT must
+      // not be able to pull unpublished rows into the ordering pass.
       query.propertyStatus &&
-        query.propertyStatus !== PropertyStatus.DRAFT &&
-        query.propertyStatus !== PropertyStatus.WITHDRAWN
+        PUBLIC_PROPERTY_STATUSES.includes(query.propertyStatus)
         ? query.propertyStatus
         : null
     );
@@ -443,7 +352,10 @@ const listPublicProperties = async (query: ListQueryInput) => {
     add((n) => `p."title" ILIKE '%' || $${n} || '%'`, query.q);
     add(
       (n) =>
-        `EXISTS (SELECT 1 FROM "seller_profiles" sp WHERE sp."id" = p."seller_id" AND sp."slug" = $${n})`,
+        `EXISTS (SELECT 1 FROM "seller_profiles" sp
+          LEFT JOIN "organizations" o ON o."id" = sp."organization_id"
+          WHERE sp."slug" = $${n}
+            AND (sp."user_id" = p."user_id" OR o."id" = p."organization_id"))`,
       query.sellerSlug
     );
 
@@ -533,11 +445,10 @@ const getPublicProperty = async (slug: string, viewerId?: string) => {
   const property = await prisma.property.findFirst({
     where: {
       slug,
-      deletedAt: null,
-      isActive: true,
-      propertyStatus: {
-        notIn: [PropertyStatus.DRAFT, PropertyStatus.WITHDRAWN],
-      },
+      // Same public allowlist as list and search — a detail page must not be
+      // a way around the list filter to reach a withdrawn or draft listing.
+      listingStatus: ListingStatus.PUBLISHED,
+      propertyStatus: { in: PUBLIC_PROPERTY_STATUSES },
     },
     select: propertyDetailSelect,
   });
@@ -568,13 +479,28 @@ const getPublicProperty = async (slug: string, viewerId?: string) => {
 };
 
 const getMyProperties = async (
-  sellerId: string,
-  query: { page?: number; limit?: number; propertyStatus?: string }
+  ctx: SellerContext,
+  query: {
+    page?: number;
+    limit?: number;
+    propertyStatus?: string;
+    listingStatus?: string;
+    includeDeleted?: string;
+  }
 ) => {
   const { skip, take, page, limit } = getPaginationParams(query);
 
-  const where: Record<string, unknown> = { sellerId, deletedAt: null };
+  // "My listings" includes PAUSED and DRAFT — the seller needs to see and
+  // edit them. DELETED stays hidden unless explicitly asked for.
+  const where: Record<string, unknown> =
+    query.includeDeleted === "true"
+      ? ctx.organizationId
+        ? { organizationId: ctx.organizationId }
+        : { userId: ctx.userId, organizationId: null }
+      : ownedPropertyWhere(ctx);
+
   if (query.propertyStatus) where.propertyStatus = query.propertyStatus;
+  if (query.listingStatus) where.listingStatus = query.listingStatus;
 
   const [properties, total] = await Promise.all([
     prisma.property.findMany({
@@ -592,9 +518,10 @@ const getMyProperties = async (
     ...buildPagination(total, page, limit),
   };
 };
-const getMyProperty = async (sellerId: string, propertyId: string) => {
+
+const getMyProperty = async (ctx: SellerContext, propertyId: string) => {
   const property = await prisma.property.findFirst({
-    where: { id: propertyId, sellerId, deletedAt: null },
+    where: { ...ownedPropertyWhere(ctx), id: propertyId },
     select: propertyDetailSelect,
   });
 
@@ -606,15 +533,22 @@ const getMyProperty = async (sellerId: string, propertyId: string) => {
 };
 
 const updateProperty = async (
-  sellerId: string,
+  ctx: SellerContext,
   propertyId: string,
   data: UpdatePropertyInput
 ) => {
-  const property = await ensureOwnProperty(sellerId, propertyId);
-  await ensureOrgOwnership(sellerId, data.organizationId);
+  const property = await ensureOwnProperty(ctx, propertyId);
+  assertRequestedOrgMatchesContext(ctx, data.organizationId);
 
-  const { variants: _variants, ...updateData } = data;
+  const { variants: _variants, organizationId: _requestedOrg, ...updateData } = data;
   const updatePayload: Record<string, unknown> = { ...updateData };
+
+  // Ownership columns are immutable after creation. Re-parenting a
+  // listing between users/organizations would silently transfer editing
+  // rights and orphan any open leads attached to it, so it is rejected
+  // rather than supported.
+  delete updatePayload.userId;
+  delete updatePayload.organizationId;
 
   if (updatePayload.title && updatePayload.title !== property.title) {
     updatePayload.slug = generateUniqueSlug(String(updatePayload.title));
@@ -635,11 +569,11 @@ const updateProperty = async (
 };
 
 const updatePropertyStatus = async (
-  sellerId: string,
+  ctx: SellerContext,
   propertyId: string,
   propertyStatus: string
 ) => {
-  const property = await ensureOwnProperty(sellerId, propertyId);
+  const property = await ensureOwnProperty(ctx, propertyId);
 
   return prisma.property.update({
     where: { id: property.id },
@@ -648,22 +582,26 @@ const updatePropertyStatus = async (
   });
 };
 
-const softDeleteProperty = async (sellerId: string, propertyId: string) => {
-  const property = await ensureOwnProperty(sellerId, propertyId);
+/**
+ * Soft delete. The row is never physically removed — `listingStatus`
+ * becomes DELETED, which every query filters out.
+ */
+const softDeleteProperty = async (ctx: SellerContext, propertyId: string) => {
+  const property = await ensureOwnProperty(ctx, propertyId);
 
   return prisma.property.update({
     where: { id: property.id },
-    data: { deletedAt: new Date() },
-    select: { id: true, deletedAt: true },
+    data: { listingStatus: ListingStatus.DELETED },
+    select: { id: true, listingStatus: true },
   });
 };
 
 const addImages = async (
-  sellerId: string,
+  ctx: SellerContext,
   propertyId: string,
   files: Express.Multer.File[]
 ) => {
-  const property = await findOwnPropertyWithImages(sellerId, propertyId);
+  const property = await findOwnPropertyWithImages(ctx, propertyId);
   const urls = await processPropertyImages(files);
 
   const current = asImageList(property.images);
@@ -683,11 +621,11 @@ const addImages = async (
 };
 
 const setImageOrder = async (
-  sellerId: string,
+  ctx: SellerContext,
   propertyId: string,
   images: { url: string; isFeatured?: boolean }[]
 ) => {
-  const property = await ensureOwnProperty(sellerId, propertyId);
+  const property = await ensureOwnProperty(ctx, propertyId);
 
   return prisma.property.update({
     where: { id: property.id },
@@ -696,8 +634,8 @@ const setImageOrder = async (
   });
 };
 
-const removeImage = async (sellerId: string, propertyId: string, url: string) => {
-  const property = await findOwnPropertyWithImages(sellerId, propertyId);
+const removeImage = async (ctx: SellerContext, propertyId: string, url: string) => {
+  const property = await findOwnPropertyWithImages(ctx, propertyId);
   const current = asImageList(property.images);
 
   const updated = current.filter((img) => img.url !== url);
@@ -722,11 +660,11 @@ const removeImage = async (sellerId: string, propertyId: string, url: string) =>
 };
 
 const addVariant = async (
-  sellerId: string,
+  ctx: SellerContext,
   propertyId: string,
   data: CreateVariantInput
 ) => {
-  const property = await ensureOwnProperty(sellerId, propertyId);
+  const property = await ensureOwnProperty(ctx, propertyId);
 
   try {
     return await prisma.propertyVariant.create({
@@ -741,12 +679,12 @@ const addVariant = async (
 };
 
 const updateVariant = async (
-  sellerId: string,
+  ctx: SellerContext,
   propertyId: string,
   variantId: string,
   data: UpdateVariantInput
 ) => {
-  const variant = await ensureOwnVariant(sellerId, propertyId, variantId);
+  const variant = await ensureOwnVariant(ctx, propertyId, variantId);
 
   return prisma.propertyVariant.update({
     where: { id: variant.id },
@@ -755,11 +693,11 @@ const updateVariant = async (
 };
 
 const deleteVariant = async (
-  sellerId: string,
+  ctx: SellerContext,
   propertyId: string,
   variantId: string
 ) => {
-  const variant = await ensureOwnVariant(sellerId, propertyId, variantId);
+  const variant = await ensureOwnVariant(ctx, propertyId, variantId);
 
   await prisma.propertyVariant.delete({ where: { id: variant.id } });
 
@@ -767,12 +705,12 @@ const deleteVariant = async (
 };
 
 const addVariantImages = async (
-  sellerId: string,
+  ctx: SellerContext,
   propertyId: string,
   variantId: string,
   files: Express.Multer.File[]
 ) => {
-  const variant = await ensureOwnVariant(sellerId, propertyId, variantId, {
+  const variant = await ensureOwnVariant(ctx, propertyId, variantId, {
     id: true,
     images: true,
   });
@@ -792,18 +730,20 @@ const adminListProperties = async (
     page?: number;
     limit?: number;
     propertyStatus?: string;
-    isVerified?: string;
-    isActive?: string;
-    includeDeleted?: string;
+    listingStatus?: string;
+    verificationStatus?: string;
+    organizationId?: string;
+    userId?: string;
   }
 ) => {
   const { skip, take, page, limit } = getPaginationParams(query);
 
   const where: Record<string, unknown> = {};
-  if (query.includeDeleted !== "true") where.deletedAt = null;
   if (query.propertyStatus) where.propertyStatus = query.propertyStatus;
-  if (query.isVerified) where.isVerified = query.isVerified === "true";
-  if (query.isActive) where.isActive = query.isActive === "true";
+  if (query.listingStatus) where.listingStatus = query.listingStatus;
+  if (query.verificationStatus) where.verificationStatus = query.verificationStatus;
+  if (query.organizationId) where.organizationId = query.organizationId;
+  if (query.userId) where.userId = query.userId;
 
   const [properties, total] = await Promise.all([
     prisma.property.findMany({
@@ -822,10 +762,18 @@ const adminListProperties = async (
   };
 };
 
+/**
+ * Sets a property's verification state.
+ *
+ * Verified / Rejected is a platform judgement about a listing, so the
+ * approver is recorded (verifiedBy) only on the positive outcome —
+ * keeping the reviewer identity alongside the verdict makes disputes
+ * auditable.
+ */
 const verifyProperty = async (
   adminId: string,
   propertyId: string,
-  isVerified: boolean
+  verificationStatus: VerificationStatus
 ) => {
   const property = await prisma.property.findUnique({
     where: { id: propertyId },
@@ -836,10 +784,12 @@ const verifyProperty = async (
     throw new ApiError(404, "Property not found");
   }
 
+  const isVerified = verificationStatus === VerificationStatus.VERIFIED;
+
   return prisma.property.update({
     where: { id: propertyId },
     data: {
-      isVerified,
+      verificationStatus,
       verifiedBy: isVerified ? adminId : null,
       verifiedAt: isVerified ? new Date() : null,
     },
@@ -847,10 +797,13 @@ const verifyProperty = async (
   });
 };
 
-const togglePropertyActive = async (
+/**
+ * Admin listing-visibility control. Replaces the old `isActive` toggle.
+ */
+const setPropertyListingStatus = async (
   _adminId: string,
   propertyId: string,
-  isActive: boolean
+  listingStatus: ListingStatus
 ) => {
   const property = await prisma.property.findUnique({
     where: { id: propertyId },
@@ -863,7 +816,7 @@ const togglePropertyActive = async (
 
   return prisma.property.update({
     where: { id: propertyId },
-    data: { isActive },
+    data: { listingStatus },
     select: propertyDetailSelect,
   });
 };
@@ -886,5 +839,6 @@ export {
   addVariantImages,
   adminListProperties,
   verifyProperty,
-  togglePropertyActive,
+  setPropertyListingStatus,
+  PUBLIC_PROPERTY_STATUSES,
 };

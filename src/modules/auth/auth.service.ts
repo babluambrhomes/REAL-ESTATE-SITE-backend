@@ -26,7 +26,8 @@ import {
   verifyRefreshToken,
   getLocationFromIP,
 } from "../../helpers";
-import { OtpPurpose } from "../../generated/prisma/enums";
+import { OtpPurpose, UserStatus, AccountOrigin, BuyerStatus } from "../../generated/prisma/enums";
+import type { Prisma } from "../../generated/prisma/client";
 import { userSelect } from "../../middlewares/auth.middleware";
 import emailQueue from "../../queues/email.queue";
 import smsQueue from "../../queues/sms.queue";
@@ -59,6 +60,60 @@ const createAuthResponse = async (
     refreshToken,
   };
 };
+
+/**
+ * Creates a brand-new user together with their Person row and their
+ * BuyerProfile, in ONE transaction.
+ *
+ * Three separate bugs are fixed here:
+ *
+ *  1. The User row used to be created OUTSIDE the transaction, so if the
+ *     Person or BuyerProfile insert failed the database was left with a
+ *     user who had no profile — an account that can log in but crashes
+ *     on every request that expects a buyer profile. This is the root
+ *     cause of the orphaned users found in the live database.
+ *
+ *  2. BuyerProfile was only created `if (firstName)`. Phone-only signups
+ *     that skipped the name step silently got no BuyerProfile at all.
+ *     The profile is part of registering, not a follow-up step.
+ *
+ *  3. `isActive: true` became `buyerStatus: ACTIVE` — the boolean was
+ *     replaced by a lifecycle enum, and `lastName: ""` became `NULL`
+ *     because an empty string is not the same as "no last name" (it
+ *     sorts and displays as a blank name).
+ */
+const createUserWithProfile = async (data: {
+  user: Prisma.UserCreateInput;
+  firstName?: string | null;
+  lastName?: string | null;
+  avatarUrl?: string | null;
+}) =>
+  prisma.$transaction(async (tx) => {
+    const user = await tx.user.create({
+      data: data.user,
+      select: userSelect,
+    });
+
+    await tx.person.create({
+      data: {
+        userId: user.id,
+        // A Google account without a name should not be stored as "Hello
+        // User" pretending to be real — fall back to a neutral placeholder
+        // but keep lastName genuinely NULL.
+        firstName: data.firstName?.trim() || "User",
+        lastName: data.lastName?.trim() || null,
+        ...(data.avatarUrl ? { avatarUrl: data.avatarUrl } : {}),
+      },
+    });
+
+    // Everyone can be a buyer — that is the default entry point to the
+    // marketplace. Becoming a SELLER is a separate, explicit upgrade.
+    await tx.buyerProfile.create({
+      data: { userId: user.id, buyerStatus: BuyerStatus.ACTIVE },
+    });
+
+    return user;
+  });
 
 const register = async (data: RegisterInput, userAgent?: string, ipAddress?: string) => {
   const { email, phone, password, FbTokenId, firstName } = data;
@@ -99,33 +154,17 @@ const register = async (data: RegisterInput, userAgent?: string, ipAddress?: str
       return createAuthResponse(updated, userAgent, ipAddress);
     }
 
-    const newUser = await prisma.user.create({
-      data: {
+    const newUser = await createUserWithProfile({
+      user: {
         email: googleEmail,
         googleId,
         hasPassword: "GOOGLE_AUTH",
-        status: "ACTIVE",
+        status: UserStatus.ACTIVE,
         emailVerified: true,
-        accountOrigin: "SELF_REGISTERED",
+        accountOrigin: AccountOrigin.SELF_REGISTERED,
       },
-      select: userSelect,
-    });
-
-    // Firebase displayName se first/last name, photoURL se avatar
-    let firstName = googleName || "Hello User";
-    let lastName = "";
-  
-
-    await prisma.$transaction(async (tx) => {
-      await tx.person.create({
-        data: {
-          userId: newUser.id,
-          firstName,
-          lastName,
-          ...(googlePhoto ? { avatarUrl: googlePhoto } : {}),
-        },
-      });
-      await tx.buyerProfile.create({ data: { userId: newUser.id, isActive: true } });
+      firstName: googleName ?? firstName,
+      avatarUrl: googlePhoto,
     });
 
     return createAuthResponse(newUser, userAgent, ipAddress);
@@ -153,26 +192,19 @@ const register = async (data: RegisterInput, userAgent?: string, ipAddress?: str
     }
 
     const hashedPassword = await hashPassword(password);
-    const newUser = await prisma.user.create({
-      data: {
+    const newUser = await createUserWithProfile({
+      user: {
         email,
         hasPassword: hashedPassword,
-        status: "PENDING",
-        accountOrigin: "SELF_REGISTERED",
+        status: UserStatus.PENDING,
+        accountOrigin: AccountOrigin.SELF_REGISTERED,
       },
-      select: userSelect,
+      firstName,
     });
 
     const otp = await createOtp({ userId: newUser.id, identifier: email, purpose: "EMAIL_VERIFICATION" as OtpPurpose });
     const template = otpVerificationTemplate({ code: otp.plainCode, userName: email });
     emailQueue.add("send-otp-email", { to: email, subject: template.subject, html: template.html });
-
-    if (firstName) {
-      await prisma.$transaction(async (tx) => {
-        await tx.person.create({ data: { userId: newUser.id, firstName, lastName: "" } });
-        await tx.buyerProfile.create({ data: { userId: newUser.id, isActive: true } });
-      });
-    }
 
     return createAuthResponse(newUser, userAgent, ipAddress);
   }
@@ -192,20 +224,17 @@ const register = async (data: RegisterInput, userAgent?: string, ipAddress?: str
       return createAuthResponse(existing, userAgent, ipAddress);
     }
 
-    const newUser = await prisma.user.create({
-      data: { phone, status: "PENDING", accountOrigin: "SELF_REGISTERED" },
-      select: userSelect,
+    const newUser = await createUserWithProfile({
+      user: {
+        phone,
+        status: UserStatus.PENDING,
+        accountOrigin: AccountOrigin.SELF_REGISTERED,
+      },
+      firstName,
     });
 
     const otp = await createOtp({ userId: newUser.id, identifier: phone, purpose: "PHONE_VERIFICATION" as OtpPurpose });
     smsQueue.add("send-phone-otp", { to: phone, message: `Your AmbrHomes verification code is: ${otp.plainCode}. Valid for 10 minutes.` });
-
-    if (firstName) {
-      await prisma.$transaction(async (tx) => {
-        await tx.person.create({ data: { userId: newUser.id, firstName, lastName: "" } });
-        await tx.buyerProfile.create({ data: { userId: newUser.id, isActive: true } });
-      });
-    }
 
     return createAuthResponse(newUser, userAgent, ipAddress);
   }
@@ -293,6 +322,55 @@ const publicOtpVerify = async (data: VerifyOtpInput) => {
   return { message: "OTP verified successfully" };
 };
 
+/**
+ * Flips the verified flag and, if this was the user's first verified contact,
+ * promotes the account from PENDING to ACTIVE and sends the welcome email.
+ *
+ * Both the email and phone verification paths used to handle this separately,
+ * and the email path forgot the status promotion entirely — so an
+ * email/password signup stayed PENDING for life while still holding working
+ * tokens, and never received the welcome email. One helper, one behaviour.
+ *
+ * The welcome email is queued, not awaited, so a mail outage cannot fail an
+ * OTP verification that already succeeded.
+ */
+const verifyContactAndActivate = async (
+  userId: string,
+  verifiedFlag: { emailVerified: true } | { phoneVerified: true }
+) => {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true, status: true, email: true },
+  });
+  if (!user) throw new ApiError(404, "User not found");
+
+  const isFirstVerifiedContact = user.status === UserStatus.PENDING;
+
+  const updatedUser = await prisma.user.update({
+    where: { id: userId },
+    data: {
+      ...verifiedFlag,
+      ...(isFirstVerifiedContact ? { status: UserStatus.ACTIVE } : {}),
+    },
+  });
+
+  if (isFirstVerifiedContact && user.email) {
+    const person = await prisma.person.findUnique({
+      where: { userId: user.id },
+      select: { firstName: true },
+    });
+    const userName = person?.firstName || user.email.split("@")[0] || "User";
+    const welcomeHtml = welcomeTemplate({ userName });
+    await emailQueue.add("send-welcome-email", {
+      to: user.email,
+      subject: welcomeHtml.subject,
+      html: welcomeHtml.html,
+    });
+  }
+
+  return updatedUser;
+};
+
 const privateOtpVerify = async (userId: string, data: ConfirmOtpInput, userAgent?: string, ipAddress?: string) => {
   const { code, purpose } = data;
 
@@ -304,30 +382,21 @@ const privateOtpVerify = async (userId: string, data: ConfirmOtpInput, userAgent
 
   const result = await verifyOtpHelper({ identifier, code, purpose: purpose as OtpPurpose });
   if (!result.valid) throw new ApiError(400, result.message);
-
   if (purpose === "EMAIL_VERIFICATION") {
-    const updatedUser = await prisma.user.update({
-      where: { id: userId },
-      data: { emailVerified: true },
-    });
+    const updatedUser = await verifyContactAndActivate(
+      userId,
+      { emailVerified: true }
+    );
 
     const response = await createAuthResponse(updatedUser, userAgent, ipAddress);
     return { message: "Email verified successfully", ...response };
   }
 
   if (purpose === "PHONE_VERIFICATION") {
-    const updateData: any = { phoneVerified: true };
-    if (user.status === "PENDING") {
-      updateData.status = "ACTIVE";
-    }
-    const updatedUser = await prisma.user.update({ where: { id: userId }, data: updateData });
-
-    if (updateData.status === "ACTIVE" && user.email) {
-      const person = await prisma.person.findUnique({ where: { userId: user.id }, select: { firstName: true } });
-      const userName = person?.firstName || user.email?.split("@")[0] || "User";
-      const welcomeHtml = welcomeTemplate({ userName });
-      await emailQueue.add("send-welcome-email", { to: user.email!, subject: welcomeHtml.subject, html: welcomeHtml.html });
-    }
+    const updatedUser = await verifyContactAndActivate(
+      userId,
+      { phoneVerified: true }
+    );
 
     const response = await createAuthResponse(updatedUser, userAgent, ipAddress);
     return { message: "Phone verified successfully", ...response };

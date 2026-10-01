@@ -1,6 +1,7 @@
-import { Response } from "express";
+﻿import { Response } from "express";
 import { ApiResponse, asyncHandler } from "../../utils";
 import { AuthRequest } from "../../types";
+import { requireSellerContext } from "../../helpers";
 import {
   BookSiteVisitInput,
   UpdateSiteVisitStatusInput,
@@ -57,20 +58,20 @@ const cancelMySiteVisit = asyncHandler(async (req: AuthRequest, res: Response) =
 
 const listSellerSiteVisits = asyncHandler(async (req: AuthRequest, res: Response) => {
   const visits = await siteVisitService.listSellerSiteVisits(
-    (req as any).sellerId,
+    requireSellerContext(req).sellerId,
     (req as any).validatedQuery as ListSiteVisitsQueryInput
   );
   res.status(200).json(new ApiResponse(200, visits));
 });
 
 const getSellerSiteVisitStats = asyncHandler(async (req: AuthRequest, res: Response) => {
-  const stats = await siteVisitService.getSellerSiteVisitStats((req as any).sellerId);
+  const stats = await siteVisitService.getSellerSiteVisitStats(requireSellerContext(req).sellerId);
   res.status(200).json(new ApiResponse(200, stats));
 });
 
 const getSellerSiteVisit = asyncHandler(async (req: AuthRequest, res: Response) => {
   const visit = await siteVisitService.getSiteVisit(
-    { sellerId: (req as any).sellerId },
+    { sellerId: requireSellerContext(req).sellerId },
     String(req.params.id)
   );
   res.status(200).json(new ApiResponse(200, visit));
@@ -78,7 +79,7 @@ const getSellerSiteVisit = asyncHandler(async (req: AuthRequest, res: Response) 
 
 const updateSiteVisitStatus = asyncHandler(async (req: AuthRequest, res: Response) => {
   const visit = await siteVisitService.updateStatus(
-    (req as any).sellerId,
+    requireSellerContext(req).sellerId,
     String(req.params.id),
     req.body as UpdateSiteVisitStatusInput
   );
@@ -87,7 +88,7 @@ const updateSiteVisitStatus = asyncHandler(async (req: AuthRequest, res: Respons
 
 const rescheduleSellerSiteVisit = asyncHandler(async (req: AuthRequest, res: Response) => {
   const visit = await siteVisitService.rescheduleSiteVisit(
-    { sellerId: (req as any).sellerId },
+    { sellerId: requireSellerContext(req).sellerId },
     String(req.params.id),
     req.body as RescheduleSiteVisitInput
   );
@@ -96,7 +97,7 @@ const rescheduleSellerSiteVisit = asyncHandler(async (req: AuthRequest, res: Res
 
 const updateSiteVisitComment = asyncHandler(async (req: AuthRequest, res: Response) => {
   const visit = await siteVisitService.updateComment(
-    (req as any).sellerId,
+    requireSellerContext(req).sellerId,
     String(req.params.id),
     (req.body as UpdateSiteVisitCommentInput).comment
   );
@@ -105,7 +106,7 @@ const updateSiteVisitComment = asyncHandler(async (req: AuthRequest, res: Respon
 
 const deleteSiteVisit = asyncHandler(async (req: AuthRequest, res: Response) => {
   const result = await siteVisitService.deleteSiteVisit(
-    (req as any).sellerId,
+    requireSellerContext(req).sellerId,
     String(req.params.id)
   );
   res.status(200).json(new ApiResponse(200, result, result.message));

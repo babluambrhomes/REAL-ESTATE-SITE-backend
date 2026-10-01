@@ -73,13 +73,29 @@ model Role {
   invitations Invitation[]
 
   // ===========================================================
-  // INDEXES
+  // UNIQUENESS — partial indexes (not raw SQL, see @@unique below)
   // ===========================================================
+  // Pehle @@unique([scope, contextId, roleName]) tha.
+  // WO GALAT THA platform rows ke liye — Postgres me NULLs DISTINCT
+  // hote hain, to UNIQUE(scope, context_id, role_name) do platform
+  // roles dono "SUPER_ADMIN" naam rakh sakte the.
+  //
+  // Isliye do partial uniques:
+  //   org rows      → context_id IS NOT NULL me role_name unique
+  //   platform rows → context_id IS NULL me role_name unique
+  //
+  // previewFeatures = ["partialIndexes"] (schema.prisma) chahiye.
 
-  // Ek scope + context me same naam ka role nahi ho sakta
-  // Example: org_1 me do "Admin" roles nahi ban sakte
-  @@unique([scope, contextId, roleName])
+  // NOTE: `name:` is deliberately NOT set — Prisma ignores custom names on
+  // partial @@unique and derives them from the columns. The database must
+  // therefore use exactly:
+  //   roles_scope_context_id_role_name_key  (context_id IS NOT NULL)
+  //   roles_scope_role_name_key             (context_id IS NULL)
+  @@unique([scope, contextId, roleName], where: { contextId: { not: null } })
+  @@unique([scope, roleName], where: { contextId: null })
+
   @@index([contextId])
   @@index([createdBy])
+  @@index([scope, roleName])
   @@map("roles")
 }

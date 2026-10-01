@@ -7,16 +7,31 @@
 // Note: Organization ki category nahi hoti - category SellerProfile pe
 // lagti hai (INDIVIDUAL aur ORGANIZATION dono seller choose karte hain)
 //
-// Jab Organization create hoti hai, 3 cheezein ek saath hongi:
+// Jab Organization create hoti hai, 5 cheezein EK TRANSACTION me hongi
+// (sab ya kuch nahi — agar beech me fail ho to org banega hi nahi):
 //   1. Organization record INSERT
-//   2. "Owner" role auto-create (is_system_role = true)
-//   3. Owner ka Member record INSERT with Owner role
+//   2. 4 system roles auto-create (OWNER/ADMIN/AGENT/STAFF)
+//   3. Creator ka Member record INSERT with OWNER role
+//   4. SellerProfile (sellerType=ORGANIZATION, organization_id=org) INSERT
+//   5. Creator ka User-ORG membership SET
+//
+// Creator ke saath koi bhi transaction chhoot jaaye to usko partial
+// org state nahi milna chahiye — isliye ek transaction me sab.
+//
+// OWNER sirf creator hota hai. Ownership transfer ka feature nahi hai
+// (createdBy hi source of truth hai). Baaki 3 roles assign ho sakte hain.
+//
+// NOTE: Org members ke paas apna koi SellerProfile NAHI hota.
+//   - Selling entity = org ki ek shared public profile
+//   - Members us profile ke through list/manage karte hain
+//   - Members ka BuyerProfile banta rehta hai (buyer bhi ban sakte hain)
 //
 // Relations:
-//   Organization 1 ←→ Many SellerProfiles
+//   Organization 1 ←→ 1 SellerProfile (organization_id @unique)
 //   Organization 1 ←→ Many Members
 //   Organization 1 ←→ Many Roles
 //   Organization 1 ←→ Many Invitations
+//   Organization 1 ←→ Many Properties
 //   Organization Many ←→ 1 User (created_by)
 // ============================================================
 
@@ -33,6 +48,10 @@ model Organization {
 
   // --- Business Verification (KYC) - Company Extras ---
   gstNumber       String? @map("gst_number")
+  // Company ka PAN yahan hai (seller_profiles.pan_number sirf INDIVIDUAL ka).
+  // Comment pehle ye claim kar raha tha ki pan_number org table pe hai,
+  // par field exist hi nahi tha — ab add kiya.
+  panNumber       String? @map("pan_number")
   yearEstablished Int?    @map("year_established")
   employeeCount   Int?    @map("employee_count")
 
@@ -44,16 +63,24 @@ model Organization {
   verifiedBy         String?            @map("verified_by") @db.Uuid
   verifiedByUser     User?              @relation("VerifiedOrganization", fields: [verifiedBy], references: [id])
 
-  // NOTE: Common seller keys (slug, address, contact, panNumber/reraNumber,
-  // metrics, followers) SellerProfile pe hain - dono seller types uniform.
-  // Organization sirf extras rakhta hai.
-
+  // NOTE: Common seller keys (slug, address, contact, metrics, followers)
+  // SellerProfile pe hain - dono seller types uniform.
+  // Organization sirf company extras rakhta hai.
+  //
+  //   Company ka RERA number → seller_profiles.rera_number
+  //     (public seller page pe legally show karna mandatory hai,
+  //      isliye Organization table me duplicate nahi rakha)
+  //
   // --- Status ---
+  // Soft delete: status DEACTIVATED. Alag deletedAt ya isActive nahi —
+  // row kabhi physically delete nahi hoti.
   status OrganizationStatus @default(ACTIVE)
 
   // --- Who Created ---
   createdBy     String @map("created_by") @db.Uuid
   createdByUser User   @relation(fields: [createdBy], references: [id])
+
+
 
   // --- Timestamps ---
   createdAt DateTime @default(now()) @map("created_at")
@@ -63,9 +90,12 @@ model Organization {
   // RELATIONS
   // ===========================================================
 
-  // Is organization ke seller profiles
-  // Organization 1 ←→ Many SellerProfiles
-  sellerProfiles SellerProfile[]
+  // Is organization ki public seller profile
+  // 1 org = 1 seller profile (organization_id @unique), isliye singular.
+  // Org banate waqt hi ek transaction me create hoti hai —
+  // kyunki CHECK constraint ke bina ye relation NULL reh sakti thi
+  // aur phir org ki public profile hi nahi hoti.
+  sellerProfile SellerProfile?
 
   // Is organization ke members (Owner, Admin, Agent, etc.)
   // Organization 1 ←→ Many Members
@@ -89,8 +119,14 @@ model Organization {
   properties Property[]
 
   // Organization seller ko aaye leads/enquiries
-  // Organization 1 ←→ Many EnquiryForms
-  enquiryForms EnquiryForm[]
+  // Organization 1 ←→ Many LeadForms
+  leadForms LeadForm[]
+
+  // Is organization ki "Interested in this organization?" form se aayi inquiries
+  // Organization 1 ←→ Many OrganizationInquiries
+  // (ORG-only form — LeadForm se alag, kyunki budget/preferred project
+  //  structured columns me chahiye)
+  organizationInquiries OrganizationInquiry[]
 
   // Organization ki properties me book hui site visits
   // Organization 1 ←→ Many SiteVisits

@@ -1,9 +1,15 @@
 // ============================================================
 // TABLE 3: BUYER PROFILES
 // ============================================================
-// Jab koi register karta hai to AUTOMATICALLY buyer profile banta hai.
-// Har user by default buyer hai.
-// Ek User ka ek hi BuyerProfile hoga (1-to-1 relation)
+// Registration ke ek hi transaction me AUTOMATICALLY create hota hai.
+// Har user by default buyer hai — buyer profile ke bina
+// koi property search, lead, site visit ya question nahi kar sakta.
+// Ek User ka ek hi BuyerProfile hoga (1-to-1 relation).
+//
+// NOTE: Ye SellerProfile se ALAG hai. Ek user dono ho sakta hai:
+//   Monit → BuyerProfile ACTIVE + SellerProfile ACTIVE (individual seller)
+//   Ek org member (Amit) → BuyerProfile ACTIVE, SellerProfile NAHI
+//     (uske liye selling entity org ki profile hai)
 //
 // Relation:
 //   User 1 ←→ 1 BuyerProfile
@@ -17,8 +23,11 @@ model BuyerProfile {
   userId String @unique @map("user_id") @db.Uuid
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  // --- Buyer Specific Data ---
-  isActive Boolean @default(true) @map("is_active")
+  // --- Status (lifecycle) ---
+  // Pehle `isActive Boolean` tha — ab enum. Reason: soft delete ke liye
+  // har model ka apna lifecycle enum hai, consistent pattern.
+  // DELETED = soft delete (row kabhi physically delete nahi hoti)
+  buyerStatus BuyerStatus @default(ACTIVE) @map("buyer_status")
 
   // Buyer ki preferences - flexible JSONB field
   // Example: { "budget_min": 500000, "budget_max": 5000000,
@@ -31,5 +40,6 @@ model BuyerProfile {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   @@index([userId])
+  @@index([buyerStatus])
   @@map("buyer_profiles")
 }

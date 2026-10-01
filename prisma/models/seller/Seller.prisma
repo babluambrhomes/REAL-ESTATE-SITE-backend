@@ -1,24 +1,46 @@
 // ============================================================
 // TABLE 4: SELLER PROFILES
 // ============================================================
-// Jab buyer "Become Seller" kare tab create hoga.
-// Do type ke sellers hain:
-//   1. INDIVIDUAL - Akela kaam karta hai (organization_id NULL)
-//   2. ORGANIZATION - Company ke saath (organization_id linked)
+// SellerProfile = actual SELLING ENTITY (public-facing profile).
+// Ye "user" nahi hai — ye wo cheez hai jiske against properties
+// list hoti hain aur buyers inquiry karte hain.
 //
-// Ek User ka ek hi SellerProfile hoga (1-to-1 relation)
+// Do type ke sellers hain:
+//   1. INDIVIDUAL   → userId = <user>, organizationId = NULL
+//                     (Monit: "main individually property sell karunga")
+//   2. ORGANIZATION → userId = NULL, organizationId = <org>
+//                     (Sohan Company ka public profile — Sohan ki nahi!)
+//
+// KEY SEPARATION: "Sohan" (user) aur "Sohan Company" (org) alag hain.
+//   - Sohan ko org banate waqt INDIVIDUAL seller profile NAHI milti
+//   - SellerProfile company ki hoti hai, user_id NULL rehta hai
+//   - Sohan sirf org ka OWNER member hota hai (members table me role)
+//
+// Constraints (DB level, CHECK + unique):
+//   - 1 user      → max 1 INDIVIDUAL seller profile (userId @unique)
+//   - 1 org       → max 1 seller profile       (organizationId @unique)
+//   - INDIVIDUAL  → userId NOT NULL, organizationId NULL
+//   - ORGANIZATION→ userId NULL, organizationId NOT NULL
 //
 // Relations:
-//   User 1 ←→ 1 SellerProfile
-//   SellerProfile Many ←→ 1 Organization (optional)
+//   SellerProfile 1 ←→ 1 User        (optional — sirf INDIVIDUAL)
+//   SellerProfile 1 ←→ 1 Organization(optional — sirf ORGANIZATION)
 // ============================================================
 
 model SellerProfile {
   id String @id @default(uuid()) @db.Uuid
 
   // --- Link to User ---
-  userId String @unique @map("user_id") @db.Uuid
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // INDIVIDUAL seller ke liye: kis user ka seller profile hai
+  // ORGANIZATION seller ke liye: NULL (profile company ki hai, user ki nahi)
+  //
+  // @unique ZAROORI HAI but nullable bhi:
+  //   - @unique    → 1 user ka max 1 individual seller profile
+  //   - nullable   → multiple org profiles NULL user_id rakh sakti hain
+  //     (Postgres me NULLs DISTINCT hote hain, to unique allow karta hai)
+  // Isse Prisma 1:1 relation bana rehta hai (User.sellerProfile singular)
+  userId String? @unique @map("user_id") @db.Uuid
+  user   User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   // --- Public Reference Code ---
   // URL/profile pe dikhega: "SELL-7F3K2Q"
@@ -34,10 +56,15 @@ model SellerProfile {
   sellerType SellerType @map("seller_type")
 
   // --- Organization Link ---
-  // Agar INDIVIDUAL hai to NULL rahega
-  // Agar ORGANIZATION hai to organization_id linked hoga
-  organizationId String?       @map("organization_id") @db.Uuid
-  organization   Organization? @relation(fields: [organizationId], references: [id])
+  // INDIVIDUAL seller → NULL
+  // ORGANIZATION seller → organization_id (1 org = 1 seller profile)
+  //
+  // @unique enforce karta hai: ek org ki sirf EK public seller profile ho
+  // org banate waqt create hoti hai (owner ke through)
+  organizationId String? @unique @map("organization_id") @db.Uuid
+  // Cascade: org delete → uski public profile bhi delete
+  // (SET NULL nahi, warna CHECK constraint violate ho jayega)
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   // --- Category ---
   // Seller kya kaam karta hai (Builder, Broker, Consultant...)
@@ -45,11 +72,21 @@ model SellerProfile {
   categoryId String?        @map("category_id") @db.Uuid
   category   SellerCategory? @relation(fields: [categoryId], references: [id])
 
-  // --- Scalar KYC Data (INDIVIDUAL sellers only) ---
+  // --- Scalar KYC Data ---
   // Scalar = number (claim), documents table = proof file
-  // ORGANIZATION seller ke liye ye NULL rahenge - company numbers
-  // Organization table pe hain (gst_number, pan_number, rera_number)
-  // Public API me hamesha masked return karo (PAN/Aadhaar sensitive)
+  //
+  // INDIVIDUAL seller:
+  //   panNumber     → individual's PAN
+  //   aadhaarNumber → individual's Aadhaar
+  //   reraNumber    → individual's RERA registration
+  //
+  // ORGANIZATION seller:
+  //   reraNumber    → COMPANY ka RERA number (public page pe legally
+  //                    display karna mandatory hai)
+  //   panNumber     → company ka PAN organizations.panNumber pe hai
+  //   aadhaarNumber → NULL (company ka Aadhaar hota hi nahi)
+  //
+  // Public API me PAN/Aadhaar hamesha masked return karo.
   panNumber     String? @map("pan_number")
   aadhaarNumber String? @map("aadhaar_number")
   reraNumber    String? @map("rera_number")
@@ -126,9 +163,11 @@ model SellerProfile {
   organizationVerifiedBy         String?             @map("organization_verified_by") @db.Uuid
   organizationVerifiedByUser     User?               @relation("VerifiedOrgSeller", fields: [organizationVerifiedBy], references: [id])
 
-  // --- Status ---
-  isActive  Boolean   @default(true) @map("is_active")
-  deletedAt DateTime? @map("deleted_at") // Soft delete
+  // --- Status (lifecycle) ---
+  // Soft delete ke liye alag "deleted" boolean ya "deletedAt" NAHI hai.
+  // Poora lifecycle ek enum me — drift hone ka koi chance nahi.
+  // DELETED = soft delete (row kabhi physically delete nahi hoti)
+  sellerStatus SellerStatus @default(ACTIVE) @map("seller_status")
 
   // --- Timestamps ---
   createdAt DateTime @default(now()) @map("created_at")
@@ -147,8 +186,14 @@ model SellerProfile {
   ratings SellerRating[]
 
   // Seller ki properties
-  // SellerProfile 1 ←→ Many Properties
-  properties Property[]
+  // NOTE: Relation REMOVED — properties ab SellerProfile se linked NAHI hain.
+  // Property.userId (creator) + Property.organizationId se ownership decide hoti hai.
+  // Reason: "Sohan" (user) aur "Sohan Company" (org) ko mix na karo —
+  // org member ki banayi property userId=member + organizationId=org dono set karti hai.
+  //
+  // Properties fetch karne ke liye:
+  //   INDIVIDUAL seller : properties(user_id = seller.userId, organization_id = NULL)
+  //   ORG seller        : properties(organization_id = seller.organizationId)
 
   // Seller ko followers
   // SellerProfile 1 ←→ Many Follows
@@ -159,13 +204,22 @@ model SellerProfile {
   // SellerProfile 1 ←→ Many FAQs
   faqs SellerFaq[]
 
-  // Seller profile/property form se aaye enquiries/leads
-  // SellerProfile 1 ←→ Many EnquiryForms
-  enquiryForms EnquiryForm[]
+  // Seller profile/property form se aaye leads/enquiries
+  // SellerProfile 1 ←→ Many LeadForms
+  leadForms LeadForm[]
+
+  // Org ki "Interested in this organization?" form se aayi inquiries
+  // SellerProfile 1 ←→ Many OrganizationInquiries
+  // (attribution link — inquiry mandatory org ko jaati hai, ye optional hai)
+  organizationInquiries OrganizationInquiry[]
 
   // Buyer ki book ki hui site visits
   // SellerProfile 1 ←→ Many SiteVisits
   siteVisits SiteVisit[]
+
+  // Buyers ne directly pooche hue sawaal (inbox)
+  // SellerProfile 1 ←→ Many BuyerQuestions
+  buyerQuestions BuyerQuestion[]
 
   // Seller ke blog posts
   // SellerProfile 1 ←→ Many Blog Posts
@@ -174,5 +228,6 @@ model SellerProfile {
   @@index([organizationId])
   @@index([categoryId])
   @@index([verificationStatus])
+  @@index([sellerStatus])
   @@map("seller_profiles")
 }

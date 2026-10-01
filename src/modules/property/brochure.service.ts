@@ -4,13 +4,14 @@ import prisma from "../../config/prisma";
 import { ApiError } from "../../utils";
 import { resolvePrivatePath } from "../../config/storage";
 import { isCloudinaryUrl } from "../../helpers/cloudinary.helper";
+import { NOT_DELETED } from "../../helpers";
 
 const getBrochure = async (propertyId: string, variantId: string) => {
   const variant = await prisma.propertyVariant.findFirst({
     where: {
       id: variantId,
       propertyId,
-      property: { deletedAt: null, isActive: true },
+      property: NOT_DELETED,
     },
     select: { id: true, brochure: true },
   });

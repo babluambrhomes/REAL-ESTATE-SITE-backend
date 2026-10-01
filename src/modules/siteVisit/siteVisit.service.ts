@@ -1,4 +1,5 @@
 import prisma from "../../config/prisma";
+import { SellerStatus } from "../../generated/prisma/enums";
 import { ApiError } from "../../utils";
 import { getPaginationParams, buildPagination } from "../../helpers";
 import { SellerType } from "../../generated/prisma/enums";
@@ -84,7 +85,7 @@ const ensureLinkExists = async (
   const exists =
     model === "sellerProfile"
       ? await prisma.sellerProfile.findFirst({
-          where: { id, deletedAt: null },
+          where: { id, sellerStatus: SellerStatus.ACTIVE },
           select: { id: true },
         })
       : await (prisma[model] as any).findUnique({ where: { id }, select: { id: true } });

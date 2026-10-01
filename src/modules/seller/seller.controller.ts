@@ -61,6 +61,11 @@ const getPublicProfile = asyncHandler(async (req: AuthRequest, res: Response) =>
   res.status(200).json(new ApiResponse(200, profile));
 });
 
+const listPublicFaqs = asyncHandler(async (req: AuthRequest, res: Response) => {
+  const faqs = await sellerService.listPublicFaqs(String(req.params.slug));
+  res.status(200).json(new ApiResponse(200, faqs));
+});
+
 
 export {
   becomeSeller,
@@ -71,4 +76,5 @@ export {
   updateLogo,
   updateCover,
   getPublicProfile,
+  listPublicFaqs,
 };

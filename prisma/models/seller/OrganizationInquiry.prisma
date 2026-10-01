@@ -1,0 +1,120 @@
+// ============================================================
+// TABLE: ORGANIZATION INTEREST INQUIRIES
+// ============================================================
+// "Interested in this organization? Get expert guidance for your
+// ideal home purchase" — buyer org ke public page se contact form
+// bharta hai. Yahi LeadForm jaisa kaam karta hai, lekin SIRF org
+// ke liye (individual sellers ke liye LeadForm use hota hai).
+//
+// Alag table kyun, LeadForm me extend karne ke bajaye:
+//   1. Budget Range aur Preferred Project LeadForm me hain hi
+//      nahi. LeadForm ka `message` column me daal dete to ye
+//      structured nahi rehte — koi range filter ya group-by
+//      nahi ho sakta.
+//   2. Ye form ORG-ONLY hai. Individual seller ke liye ye page
+//      hai hi nahi, to ek hi table me dono rakhne se LeadForm
+//      me ek nullable organization-only column ka cluster ban
+//      jayega.
+//
+// - organizationId required: inquiry hamesha ek company ko jaati
+//   hai, isliye org link mandatory hai (LeadForm me optional tha
+//   kyunki wo property/seller se bhi aata tha)
+// - userId required: form bharne ke liye login compulsory hai.
+//   ON DELETE CASCADE — user delete hoga to uski inquiries bhi.
+// - sellerId optional: org ka public SellerProfile. Attribution
+//   ke liye (LeadForm jaisa). SetNull so profile delete hone par
+//   inquiry bach jaye.
+// - source/status/comment: LeadForm wali poori pipeline copy —
+//   SAME enums (LeadSource / LeadStatus) reuse kiye gaye hain,
+//   naye enum nahi bane. Isliye dono models ki values ek jaisi
+//   rakh sakte hain aur ek hi status vocabulary me filtering
+//   ho sakti hai.
+// - assignedToMemberId optional: org members ko assign karne ke
+//   liye, org ke shared pool se. REMOVED member ho to SetNull.
+// - termsAccepted: NOT NULL. Column hi maujood ho to pata chale
+//   ki user ne consent diya tha — compliance evidence. Backend
+//   pe `true` validate karta hai, par DB pe default false rakhte
+//   hain taaki direct DB insert bhi galat na ho sake.
+//
+// Relations:
+//   OrganizationInquiry Many ←→ 1 Organization
+//   OrganizationInquiry Many ←→ 1 User (buyer)
+//   OrganizationInquiry Many ←→ 1 SellerProfile (optional)
+//   OrganizationInquiry Many ←→ 1 Member (assignee, optional)
+// ============================================================
+
+model OrganizationInquiry {
+  id String @id @default(uuid()) @db.Uuid
+
+  // --- Organization Link (required) ---
+  // ON DELETE CASCADE: company delete = uski saari inquiries bhi.
+  // Ye Leads jaisa hi hai — orphan inquiries ka koi matlab nahi.
+  organizationId String       @map("organization_id") @db.Uuid
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  // --- Buyer Link (required) ---
+  // Login compulsory hai to ye hamesha set hota hai.
+  userId String @map("user_id") @db.Uuid
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // --- Seller Profile Link (optional — ATTRIBUTION) ---
+  // Org ka public SellerProfile. SetNull: profile delete ho jaye
+  // tab bhi inquiry (org ki property) bachi rahe.
+  sellerId String?        @map("seller_id") @db.Uuid
+  seller   SellerProfile? @relation(fields: [sellerId], references: [id], onDelete: SetNull)
+
+  // --- Manual Assignment (optional) ---
+  // Org members poore org ka portfolio manage karte hain, to
+  // inquiry bhi unke shared pool me aati hai aur phir kisi
+  // member ko assign ho sakti hai.
+  assignedToMemberId String? @map("assigned_to_member_id") @db.Uuid
+  assignedToMember   Member? @relation("OrganizationInquiryAssignee", fields: [assignedToMemberId], references: [id], onDelete: SetNull)
+
+  // --- Lead Source ---
+  source LeadSource @default(CONTACT) @map("source")
+
+  // --- Lead Data ---
+  // name + phone required — inquiry ka contact info; email optional
+  name  String
+  email String?
+  phone String
+
+  // --- Form-Specific Fields ---
+  // Free text jaanbujh kar: "50L - 1Cr", "1 Crore se ooper", etc.
+  // Numeric columns se exact amounts store hoti, lekin buyers
+  // range apne shabd me likhte hain aur wo sentence retain karna
+  // sales team ke liye zyada useful hai. Analytics chahiye to
+  // ye parse kar lena padega — jaanbujh kar trade-off.
+  budgetRange String? @map("budget_range")
+
+  preferredProject String? @map("preferred_project")
+
+  // --- Optional Message ---
+  message String? @db.Text
+
+  // --- Org-Side Internal Note ---
+  // Buyer ko nahi dikhta, sirf org members ko.
+  comment String? @db.Text
+
+  // --- Status ---
+  // NEW → CONTACTED → SITE_VISIT → NEGOTIATION → WON/LOST
+  status LeadStatus @default(NEW)
+
+  // --- Terms Consent ---
+  termsAccepted   Boolean   @default(false) @map("terms_accepted")
+  termsAcceptedAt DateTime? @map("terms_accepted_at")
+
+  // --- Timestamps ---
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Org ka inquiry inbox
+  @@index([organizationId, status, createdAt])
+  // Specific org ki inquiry list
+  @@index([organizationId])
+  // Buyer's own inquiries (buyer dashboard)
+  @@index([userId, createdAt])
+  // "my inquiries" — assigned member ke hisaab se filter
+  @@index([assignedToMemberId, status])
+  @@map("organization_inquiries")
+}

@@ -3,6 +3,7 @@ import prisma from "../../config/prisma";
 import redisConnection from "../../config/redis";
 import { buildCacheKey, withCache, getCacheVersion } from "../../helpers";
 import { SuggestionsQueryInput } from "./search.validation";
+import { PUBLIC_PROPERTY_STATUSES } from "../property/property.select";
 import type {
   CityFacet,
   PropertyTypeFacet,
@@ -128,10 +129,16 @@ const buildFacets = async (
   const { transactionType, hasGeo, radiusKm, city } = scopeOpts;
   const buckets = transactionType === "RENT" ? RENT_BUCKETS : SALE_BUCKETS;
 
+  // Must stay in sync with the visibility filter used by
+  // search.service.ts and property.service.ts. Facet counts that
+  // disagree with the actual result set produce filter chips that lead
+  // to empty pages. Sharing PUBLIC_PROPERTY_STATUSES makes that sync
+  // structural instead of a thing three files have to remember.
   const conditions: Prisma.Sql[] = [
-    Prisma.sql`p."is_active" = true`,
-    Prisma.sql`p."deleted_at" IS NULL`,
-    Prisma.sql`p."property_status" IN ('AVAILABLE', 'UNDER_OFFER')`,
+    Prisma.sql`p."listing_status" = 'PUBLISHED'`,
+    Prisma.sql`p."property_status" IN (${Prisma.join(
+      PUBLIC_PROPERTY_STATUSES.map((s) => Prisma.sql`'${s}'`)
+    )})`,
     Prisma.sql`p."transaction_type" = ${transactionType}`,
   ];
 

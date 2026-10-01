@@ -17,7 +17,7 @@ import {
   uploadVariantImages,
   adminListProperties,
   verifyProperty,
-  togglePropertyActive,
+  setPropertyListingStatus,
 } from "./property.controller";
 import { toggleWishlist } from "../propertyWishlist/propertyWishlist.controller";
 import { getBrochure } from "./brochure.controller";
@@ -25,10 +25,11 @@ import {
   protect,
   checkSeller,
   checkSellerVerified,
-  authorizePlatformRole,
+  requirePermission,
   validate,
   upload,
 } from "../../middlewares";
+import { PermissionScope } from "../../generated/prisma/enums";
 import {
   createPropertySchema,
   updatePropertySchema,
@@ -36,7 +37,7 @@ import {
   createVariantSchema,
   updateVariantSchema,
   verifyPropertySchema,
-  toggleActiveSchema,
+  setListingStatusSchema,
   setImagesSchema,
   removeImageSchema,
 } from "./property.validation";
@@ -71,9 +72,9 @@ router.post(
 
 router.get("/:id/variants/:variantId/brochure", protect, getBrochure);
 
-router.get("/admin", protect, authorizePlatformRole("Super Admin", "Staff"), adminListProperties);
-router.patch("/:id/verify", protect, authorizePlatformRole("Super Admin", "Staff"), validate(verifyPropertySchema), verifyProperty);
-router.patch("/:id/toggle-active", protect, authorizePlatformRole("Super Admin", "Staff"), validate(toggleActiveSchema), togglePropertyActive);
+router.get("/admin", protect, requirePermission(PermissionScope.PLATFORM, "property:read"), adminListProperties);
+router.patch("/:id/verify", protect, requirePermission(PermissionScope.PLATFORM, "property:verify"), validate(verifyPropertySchema), verifyProperty);
+router.patch("/:id/listing-status", protect, requirePermission(PermissionScope.PLATFORM, "property:update"), validate(setListingStatusSchema), setPropertyListingStatus);
 
 
 

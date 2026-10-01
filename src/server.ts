@@ -14,12 +14,18 @@ import { errorHandler } from "./middlewares";
 import authRouter from "./modules/auth/auth.route";
 import userRouter from "./modules/user/user.route";
 import sellerRouter from "./modules/seller/seller.route";
-import enquiryFormRouter from "./modules/enquiryForm/enquiryForm.route";
+import leadFormRouter from "./modules/leadForm/leadForm.route";
 import siteVisitRouter from "./modules/siteVisit/siteVisit.route";
 import sellerKycRouter from "./modules/sellerkyc/kyc.route";
 import sellerCategoryRouter from "./modules/sellercategory/sellercategory.route";
+import organizationRouter from "./modules/organization/organization.route";
+import organizationInquiryRouter from "./modules/organizationInquiry/organizationInquiry.route";
 import sellerFaqRouter from "./modules/sellerfaq/sellerfaq.route";
 import propertyRouter from "./modules/property/property.route";
+import propertyFaqRouter from "./modules/propertyFaq/propertyFaq.route";
+import buyerQuestionRouter from "./modules/buyerQuestion/buyerQuestion.route";
+import blogPostRouter from "./modules/blogPost/blogPost.route";
+import blogPostPublicRouter from "./modules/blogPost/blogPost.public.route";
 import searchRouter from "./modules/search/search.route";
 import "./workers/email.worker";
 
@@ -51,14 +57,19 @@ app.use("/uploads", express.static(path.join(__dirname, "..", "uploads")));
 
 app.use("/api/v1/auth", authRouter);
 app.use("/api/v1/users", userRouter);
-app.use("/api/v1/enquiries", enquiryFormRouter);
+app.use("/api/v1/leads", leadFormRouter);
 app.use("/api/v1/site-visits", siteVisitRouter);
 app.use("/api/v1/sellers", sellerRouter);
 app.use("/api/v1/sellers/me/faqs", sellerFaqRouter);
+app.use("/api/v1/sellers/me/blog-posts", blogPostRouter);
 app.use("/api/v1/sellers/kyc", sellerKycRouter);
 app.use("/api/v1/seller-categories", sellerCategoryRouter);
+app.use("/api/v1/organizations", organizationRouter);
+app.use("/api/v1/organizations/:orgId/inquiries", organizationInquiryRouter);
 app.use("/api/v1/properties", propertyRouter);
-app.use("/api/v1/properties", propertyRouter);
+app.use("/api/v1/property-faqs", propertyFaqRouter);
+app.use("/api/v1/buyer-questions", buyerQuestionRouter);
+app.use("/api/v1/blog-posts", blogPostPublicRouter);
 app.use("/api/v1/search", searchRouter);
 
 app.get("/", (req, res) => {

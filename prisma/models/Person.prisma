@@ -19,8 +19,11 @@ model Person {
   // onDelete: Cascade → User delete hoga to Person bhi delete hoga
 
   // --- Personal Info ---
+  // firstName REQUIRED hai (har real estate listing/lead me naam chahiye).
+  // lastName OPTIONAL — Indian naming me bohot log single name sehte hain,
+  // aur force karne se fake/placeholder last names ("Kumar", "test") aate hain.
   firstName   String    @map("first_name")
-  lastName    String    @map("last_name")
+  lastName    String?   @map("last_name")
   avatarUrl   String?   @map("avatar_url") // Profile photo
   dateOfBirth DateTime? @map("date_of_birth") @db.Date
   gender      Gender? // MALE, FEMALE, OTHER

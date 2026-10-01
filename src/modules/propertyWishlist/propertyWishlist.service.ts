@@ -1,83 +1,16 @@
-import prisma from "../../config/prisma";
+﻿import prisma from "../../config/prisma";
 import { ApiError } from "../../utils";
 import { getPaginationParams, buildPagination } from "../../helpers";
+import { propertyCardSelect, toCard } from "../property/property.select";
+import { ListingStatus } from "../../generated/prisma/enums";
 import { WishlistQueryInput } from "./propertyWishlist.validation";
 
-const propertyCardSelect = {
-  id: true,
-  propertyCode: true,
-  title: true,
-  slug: true,
-  description: true,
-  transactionType: true,
-  propertyType: true,
-  propertyStatus: true,
-  city: true,
-  state: true,
-  pincode: true,
-  images: true,
-  isFeatured: true,
-  isVerified: true,
-  viewsCount: true,
-  likesCount: true,
-  averageRating: true,
-  ratingCount: true,
-  createdAt: true,
-  seller: {
-    select: {
-      id: true,
-      referenceCode: true,
-      slug: true,
-      sellerType: true,
-      headline: true,
-      logoUrl: true,
-    },
-  },
-  variants: {
-    where: { isActive: true },
-    orderBy: { price: "asc" as const },
-    select: {
-      id: true,
-      variantName: true,
-      bedrooms: true,
-      price: true,
-      mrpPrice: true,
-      pricePerSqft: true,
-      totalArea: true,
-      totalAreaUnit: true,
-      furnishingStatus: true,
-      availabilityStatus: true,
-      isAvailable: true,
-      images: true,
-    },
-  },
-};
-
-const toCard = (property: any) => {
-  const images: { url: string; isFeatured?: boolean }[] = Array.isArray(property.images)
-    ? property.images
-    : [];
-  const featuredImage =
-    images.find((i) => i.isFeatured)?.url ?? images[0]?.url ?? null;
-  const minPrice = property.variants?.[0]?.price ?? null;
-
-  const { images: _imgs, variants: _variants, ...rest } = property;
-
-  return {
-    ...rest,
-    minPrice,
-    featuredImage,
-    imagesCount: images.length,
-    variants: property.variants,
-  };
-};
 
 const toggleWishlist = async (userId: string, propertyId: string) => {
   const property = await prisma.property.findFirst({
     where: {
       id: propertyId,
-      deletedAt: null,
-      isActive: true,
+      listingStatus: ListingStatus.PUBLISHED,
     },
     select: { id: true },
   });

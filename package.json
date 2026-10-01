@@ -11,10 +11,14 @@
     "prisma:generate": "prisma generate",
     "prisma:studio": "prisma studio",
     "prisma:push": "prisma db push",
-    "prisma:migrate": "prisma migrate dev"
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:seed": "tsx prisma/seed.ts"
   },
   "author": "",
   "license": "ISC",
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  },
   "dependencies": {
     "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.8.0",

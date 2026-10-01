@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { PUBLIC_PROPERTY_STATUSES } from "../property/property.select";
 
 export const transactionTypes = ["SALE", "RENT"] as const;
 
@@ -19,10 +20,18 @@ export const propertyTypes = [
   "WAREHOUSE",
 ] as const;
 
-export const propertyStatuses = [
-  "AVAILABLE",
-  "UNDER_OFFER",
-] as const;
+/**
+ * Statuses a public visitor is allowed to filter by.
+ *
+ * Derived from PUBLIC_PROPERTY_STATUSES — the same allowlist that decides
+ * what is visible at all. Accepting "DRAFT" here and then ignoring it in the
+ * query would return the unfiltered result set, which reads as a broken
+ * filter rather than a rejected one.
+ */
+export const propertyStatuses = PUBLIC_PROPERTY_STATUSES as unknown as readonly [
+  string,
+  ...string[],
+];
 
 export const furnishingStatuses = [
   "FURNISHED",
@@ -94,7 +103,9 @@ export const searchQuerySchema = z.object({
 
   // Flags
   isFeatured: z.enum(["true", "false"]).optional(),
-  isVerified: z.enum(["true", "false"]).optional(),
+  // Was `isVerified` boolean. Now the VerificationStatus enum, so buyers
+  // can filter for PENDING/REJECTED too and staff can review queues.
+  verificationStatus: z.enum(["PENDING", "VERIFIED", "REJECTED"]).optional(),
 
   // Seller
   sellerSlug: z.string().trim().max(100).optional(),

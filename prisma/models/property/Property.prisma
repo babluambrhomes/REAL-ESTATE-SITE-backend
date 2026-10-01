@@ -2,12 +2,18 @@
 // TABLE: PROPERTIES
 // ============================================================
 // Real estate property listing ka main table.
-// Seller apni property list karta hai, buyer search/detail dekh sakta hai.
+// Listing banane wala user ya organization member property list karta hai,
+// buyer search/detail dekh sakta hai.
 //
-// Relations:
-//   Property Many ←→ 1 SellerProfile
-//   Property Many ←→ 1 Organization (optional)
-//   Property Many ←→ 1 User (verifiedBy, optional)
+// Ownership: `sellerId` REMOVED. Ab:
+//   Property Many ←→ 1 User         (userId = creator, optional on delete)
+//   Property Many ←→ 1 Organization (organizationId, optional)
+//   Property Many ←→ 1 User         (verifiedBy, optional)
+//
+// Lifecycle: `isActive`/`isVerified`/`deletedAt` REMOVED.
+//   visibility  → listingStatus      (DRAFT/PUBLISHED/PAUSED/EXPIRED/REJECTED/DELETED)
+//   verification→ verificationStatus (PENDING/IN_REVIEW/VERIFIED/REJECTED)
+//   business    → propertyStatus     (AVAILABLE/SOLD/RENTED/WITHDRAWN)
 // ============================================================
 
 model Property {
@@ -15,12 +21,35 @@ model Property {
 
   propertyCode String @unique  @map("property_code")
 
-  // --- Seller Info ---
-  sellerId String        @map("seller_id") @db.Uuid
-  seller   SellerProfile @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  // --- Ownership: userId + organizationId ---
+  // NOTE: pehle ek mandatory `sellerId` (SellerProfile FK) tha.
+  // Ab ownership do fields se decide hoti hai:
+  //
+  //   userId         → kisne create ki (creator / individual seller)
+  //   organizationId → kis org ke liye hai (optional)
+  //
+  //   INDIVIDUAL seller (Monit)  → userId = Monit,   organizationId = NULL
+  //   ORG member (Amit @ O1)    → userId = Amit,    organizationId = O1
+  //   Monit, personal listing   → userId = Monit,   organizationId = NULL
+  //
+  // "Sohan" (user) aur "Sohan Company" (org) mix nahi hote —
+  // organizationId hi wo discriminator hai.
+  //
+  // onDelete: Restrict — a user who has created properties cannot be hard
+  // deleted. This is intentional and consistent with the rest of the model:
+  // users are never hard-deleted, they go to UserStatus.DEACTIVATED.
+  //
+  // Cascade would delete a company's whole portfolio when one employee
+  // closed their account; SetNull would require user_id to be nullable,
+  // which would allow a property with no known owner at all. Restrict
+  // states the real rule — the creator is part of the listing's identity.
+  userId String @map("user_id") @db.Uuid
+  user   User   @relation("PropertyCreator", fields: [userId], references: [id], onDelete: Restrict)
 
+  // onDelete: Restrict — org ke properties hote hue org delete nahi hoga.
+  // Org soft delete hota hai (status DEACTIVATED), hard delete se bachata hai.
   organizationId String?       @map("organization_id") @db.Uuid
-  organization   Organization? @relation(fields: [organizationId], references: [id])
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Restrict)
 
   // --- Basic Info ---
   title       String
@@ -80,8 +109,23 @@ model Property {
   ratingCount   Int      @default(0) @map("rating_count")
   averageRating Decimal? @map("average_rating") @db.Decimal(3, 2) // 0.00-5.00
   isFeatured    Boolean  @default(false) @map("is_featured")
-  isActive      Boolean  @default(true) @map("is_active")
-  isVerified    Boolean  @default(false) @map("is_verified")
+
+  // --- Visibility (lifecycle) ---
+  // "isActive" boolean + "deletedAt" timestamp dono hata diye gaye —
+  // ek enum se replace. Do fields me drift ho sakta tha
+  // (isActive=false par deletedAt=null → do alag code paths
+  //  do alag answer dete hain).
+  //
+  // listingStatus = VISIBILITY (DRAFT/PUBLISHED/PAUSED/EXPIRED/REJECTED/DELETED)
+  // propertyStatus = BUSINESS REALITY (AVAILABLE/SOLD/RENTED/WITHDRAWN)
+  // Ye do alag cheezein hain, isliye do alag fields.
+  listingStatus ListingStatus @default(DRAFT) @map("listing_status")
+
+  // --- Verification ---
+  // SellerProfile aur Organization me bhi VerificationStatus enum hai —
+  // Property me pehle "isVerified" boolean tha, wo inconsistent tha.
+  // Ab teeno me same enum. REJECTED bhi available hai.
+  verificationStatus VerificationStatus @default(PENDING) @map("verification_status")
 
   verifiedAt     DateTime? @map("verified_at")
   verifiedBy     String?   @map("verified_by") @db.Uuid
@@ -99,17 +143,22 @@ model Property {
   searchVector Unsupported("tsvector")?
 
   // --- Timestamps ---
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @updatedAt @map("updated_at")
-  deletedAt DateTime? @map("deleted_at") // Soft delete
+  // NOTE: `deletedAt` REMOVED. Soft delete ab `listingStatus: DELETED` se
+  // hota hai — row kabhi physically delete nahi hoti.
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
-  // Property pe aaye seller enquiries/leads
-  // Property 1 ←→ Many EnquiryForms
-  enquiryForms EnquiryForm[]
+  // Property pe aaye seller leads/enquiries
+  // Property 1 ←→ Many LeadForms
+  leadForms LeadForm[]
 
   // Property ki site visits
   // Property 1 ←→ Many SiteVisits
   siteVisits SiteVisit[]
+
+  // Is property page se pooche hue buyer sawaal
+  // Property 1 ←→ Many BuyerQuestions
+  buyerQuestions BuyerQuestion[]
 
   // BHK configurations (2 BHK, 3 BHK, 4 BHK...) alag price/metrics ke saath
   // Property 1 ←→ Many Variants
@@ -127,17 +176,22 @@ model Property {
   // Property 1 ←→ Many Ratings
   ratings PropertyRating[]
 
-  @@index([sellerId])
+  @@index([userId])
   @@index([organizationId])
+  @@index([listingStatus])
+  @@index([verificationStatus])
   @@index([propertyType])
   @@index([transactionType])
   @@index([propertyStatus])
   @@index([city])
   @@index([state])
   @@index([isFeatured])
-  @@index([isActive])
-  @@index([isVerified])
-  @@index([deletedAt])
-  @@index([propertyCode])
+
+  // NOTE: "public search" partial index (created_at DESC, sirf PUBLISHED
+  // + AVAILABLE/UNDER_OFFER) SCHEMA me nahi hai — Prisma ke partial index
+  // `where` me `in` support nahi hai (sirf equality aur `not`).
+  // Wo raw SQL se manage hota hai, migration me dekho:
+  //   prisma/migrations/<...>_property_listing_lifecycle/migration.sql
+
   @@map("properties")
 }

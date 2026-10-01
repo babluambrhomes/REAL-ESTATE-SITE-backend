@@ -4,74 +4,50 @@ import prisma from "../../config/prisma";
 import { ApiError } from "../../utils";
 import { getDocRequirements, isDocAllowedFor } from "../../config/sellerKyc";
 import { DocumentUploadInput } from "./kyc.validation";
-import { PROJECT_ROOT, resolvePrivatePath } from "../../config/storage";
+import { resolvePrivatePath } from "../../config/storage";
 import { uploadFile, deleteCloudinaryFile, isCloudinaryUrl } from "../../helpers/cloudinary.helper";
 import { SellerType, VerificationStatus } from "../../generated/prisma/enums";
+import { SellerContext } from "../../types";
 
-interface OwnerContext {
-  sellerId?: string;
-  organizationId?: string;
-}
+/**
+ * Which column a KYC document hangs off.
+ *
+ *   INDIVIDUAL   → seller_id
+ *   ORGANIZATION → organization_id
+ *
+ * EXACTLY ONE of the two, never both. A database CHECK constraint enforces
+ * this, so the previous code that set `sellerId` alongside
+ * `organizationId` for orgs would now fail at insert time. Org documents
+ * are company-level on purpose: staff turnover must not invalidate the
+ * company's KYC, and no single employee should own the company's proof of
+ * identity.
+ */
+type DocOwner = { sellerId: string } | { organizationId: string };
 
-const getSeller = async (userId: string) => {
-  const seller = await prisma.sellerProfile.findUnique({
-    where: { userId },
-    select: { id: true, sellerType: true, organizationId: true, isActive: true },
-  });
+const getDocOwner = (ctx: SellerContext): DocOwner =>
+  ctx.organizationId ? { organizationId: ctx.organizationId } : { sellerId: ctx.sellerId };
 
-  if (!seller) {
-    throw new ApiError(403, "You are not registered as a seller");
-  }
-
-  if (!seller.isActive) {
-    throw new ApiError(403, "Your seller account is deactivated");
-  }
-
-  return seller;
-};
-
-const getOwnerContext = (seller: {
-  id: string;
-  sellerType: SellerType;
-  organizationId: string | null;
-}): OwnerContext => {
-  // sellerId hamesha = seller profile id (INDIVIDUAL ya ORG owner).
-  // ORGANIZATION ke liye sath me organizationId bhi set hota hai (dono).
-  const ctx: OwnerContext = { sellerId: seller.id };
-  if (seller.sellerType === SellerType.ORGANIZATION) {
-    if (!seller.organizationId) {
-      throw new ApiError(400, "Organization not linked to seller account");
-    }
-    ctx.organizationId = seller.organizationId;
-  }
-  return ctx;
-};
-
-// Document list/delete/get ke liye smart filter — purane rows bhi milte hain.
-const getDocsFilterWhere = (owner: OwnerContext, sellerType: SellerType) =>
-  sellerType === SellerType.ORGANIZATION && owner.organizationId
-    ? { organizationId: owner.organizationId }
-    : { sellerId: owner.sellerId! };
+/** Filter matching every document owned by this selling entity. */
+const docsWhereFor = (ctx: SellerContext) => getDocOwner(ctx);
 
 const uploadDocument = async (
+  ctx: SellerContext,
   userId: string,
   file: Express.Multer.File | undefined,
-  data: DocumentUploadInput 
+  data: DocumentUploadInput
 ) => {
   if (!file) {
     throw new ApiError(400, "No file uploaded");
   }
 
-  const seller = await getSeller(userId);
-
-  if (!isDocAllowedFor(seller.sellerType, data.docType)) {
+  if (!isDocAllowedFor(ctx.sellerType, data.docType)) {
     throw new ApiError(
       400,
-      `Document type ${data.docType} is not allowed for ${seller.sellerType} sellers`
+      `Document type ${data.docType} is not allowed for ${ctx.sellerType} sellers`
     );
   }
 
-  const owner = getOwnerContext(seller);
+  const owner = getDocOwner(ctx);
 
   // --- CLOUDINARY (new) ---
   const uploaded = await uploadFile(file.path, {
@@ -80,20 +56,9 @@ const uploadDocument = async (
   });
   const fileUrl = uploaded.url;
 
-  // --- LOCAL (old) -- keep for reference ---
-  // const fileUrl = path.relative(PROJECT_ROOT, file.path);
-
-  // Existing doc dhundho — ORG ke liye sirf organizationId+docType se
-  // (kyunki purane rows me sellerId null ho sakta hai).
-  // INDIVIDUAL ke liye sellerId+docType.
-  const existingWhere = owner.organizationId
-    ? { organizationId: owner.organizationId, docType: data.docType }
-    : { sellerId: owner.sellerId!, docType: data.docType };
-
   const existing = await prisma.sellerVerificationDocument.findFirst({
-    where: existingWhere,
+    where: { ...owner, docType: data.docType },
   });
-
 
   if (existing?.status === VerificationStatus.VERIFIED) {
     // --- CLOUDINARY (new) ---
@@ -105,7 +70,7 @@ const uploadDocument = async (
     throw new ApiError(409, "Document already verified. Cannot re-upload.");
   }
 
-  const createData = {
+  const docData = {
     docType: data.docType,
     title: data.title,
     fileUrl,
@@ -115,37 +80,34 @@ const uploadDocument = async (
     status: VerificationStatus.PENDING,
   };
 
-  let document;
-  // sellerId hamesha set hai — branch organizationId ki presence se (sirf ORG ke liye).
-  if (owner.organizationId) {
-    document = await prisma.sellerVerificationDocument.upsert({
-      where: {
-        organizationId_docType: {
-          organizationId: owner.organizationId,
-          docType: data.docType,
-        },
-      },
-      create: { ...createData, sellerId: owner.sellerId!, organizationId: owner.organizationId },
-      update: {
-        ...createData,
-        sellerId: owner.sellerId!,
-        rejectionReason: null,
-        verifiedAt: null,
-        verifiedBy: null,
-      },
-    });
-  } else {
-    document = await prisma.sellerVerificationDocument.upsert({
-      where: { sellerId_docType: { sellerId: owner.sellerId!, docType: data.docType } },
-      create: { ...createData, sellerId: owner.sellerId! },
-      update: {
-        ...createData,
-        rejectionReason: null,
-        verifiedAt: null,
-        verifiedBy: null,
-      },
-    });
-  }
+  // Re-uploading resets the review: reason + reviewer + timestamp must all
+  // clear, otherwise a rejected document that is re-submitted would still
+  // show the old rejection reason next to its new PENDING status.
+  const resetReview = {
+    ...docData,
+    status: VerificationStatus.PENDING,
+    rejectionReason: null,
+    verifiedAt: null,
+    verifiedBy: null,
+  };
+
+  const document =
+    ctx.organizationId != null
+      ? await prisma.sellerVerificationDocument.upsert({
+          where: {
+            organizationId_docType: {
+              organizationId: ctx.organizationId,
+              docType: data.docType,
+            },
+          },
+          create: { ...docData, organizationId: ctx.organizationId },
+          update: resetReview,
+        })
+      : await prisma.sellerVerificationDocument.upsert({
+          where: { sellerId_docType: { sellerId: ctx.sellerId, docType: data.docType } },
+          create: { ...docData, sellerId: ctx.sellerId },
+          update: resetReview,
+        });
 
   if (existing) {
     // --- CLOUDINARY (new) ---
@@ -159,18 +121,25 @@ const uploadDocument = async (
   return document;
 };
 
-const getDocuments = async (userId: string) => {
-  const seller = await getSeller(userId);
-  const owner = getOwnerContext(seller);
-
-  const docsWhere = getDocsFilterWhere(owner, seller.sellerType);
+/**
+ * KYC documents, always read and written against ONE resolved selling context.
+ *
+ * The context is passed in from the request rather than re-resolved from the
+ * user id. That distinction matters: resolveSellerContextForUser cannot see
+ * which organization the caller named, so for a user who is both an
+ * individual seller and a company agent, uploading company GST papers would
+ * have silently filed them under their personal profile — a document on the
+ * wrong legal entity, which is exactly what KYC review exists to prevent.
+ */
+const getDocuments = async (ctx: SellerContext) => {
+  const docsWhere = docsWhereFor(ctx);
 
   const [documents, requirements] = await Promise.all([
     prisma.sellerVerificationDocument.findMany({
       where: docsWhere,
       orderBy: { createdAt: "desc" },
     }),
-    Promise.resolve(getDocRequirements(seller.sellerType)),
+    Promise.resolve(getDocRequirements(ctx.sellerType)),
   ]);
 
   const docMap = new Map(documents.map((doc) => [doc.docType, doc]));
@@ -189,17 +158,12 @@ const getDocuments = async (userId: string) => {
     };
   });
 
-  return { sellerType: seller.sellerType, documents, submissionStatus };
+  return { sellerType: ctx.sellerType, documents, submissionStatus };
 };
 
-const deleteDocument = async (userId: string, docId: string) => {
-  const seller = await getSeller(userId);
-  const owner = getOwnerContext(seller);
-
-  const docsWhere = getDocsFilterWhere(owner, seller.sellerType);
-
+const deleteDocument = async (ctx: SellerContext, docId: string) => {
   const document = await prisma.sellerVerificationDocument.findFirst({
-    where: { id: docId, ...docsWhere },
+    where: { id: docId, ...docsWhereFor(ctx) },
   });
 
   if (!document) {
@@ -222,34 +186,22 @@ const deleteDocument = async (userId: string, docId: string) => {
   return { message: "Document deleted" };
 };
 
-const getDocumentFile = async (userId: string, docId: string) => {
-  const seller = await getSeller(userId);
-  const owner = getOwnerContext(seller);
-
-  const docsWhere = getDocsFilterWhere(owner, seller.sellerType);
-
+const getDocumentFile = async (ctx: SellerContext, docId: string) => {
   const document = await prisma.sellerVerificationDocument.findFirst({
-    where: { id: docId, ...docsWhere },
+    where: { id: docId, ...docsWhereFor(ctx) },
   });
 
   if (!document) {
     throw new ApiError(404, "Document not found");
   }
 
-  const absPath = resolvePrivatePath(document.fileUrl);
-
   // --- CLOUDINARY (new) ---
   if (isCloudinaryUrl(document.fileUrl)) {
     return { cloudinaryUrl: document.fileUrl };
   }
-  // --- LOCAL (old) -- keep for reference ---
-  // const absPath = resolvePrivatePath(document.fileUrl);
-  // try {
-  //   await fs.access(absPath);
-  // } catch {
-  //   throw new ApiError(404, "File not found");
-  // }
 
+  // --- LOCAL (old) -- keep for reference ---
+  const absPath = resolvePrivatePath(document.fileUrl);
   try {
     await fs.access(absPath);
   } catch {

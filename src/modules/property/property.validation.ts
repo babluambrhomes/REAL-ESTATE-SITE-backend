@@ -18,6 +18,14 @@ export const propertyTypes = [
   "STUDIO",
 ] as const;
 
+/**
+ * Every status a seller or admin may set.
+ *
+ * This is the full list, including DRAFT and WITHDRAWN, because the endpoints
+ * using it are the ones that legitimately set those. It is deliberately
+ * wider than PUBLIC_PROPERTY_STATUSES — public read filters are narrowed to
+ * that allowlist separately, in property/search/suggestions.
+ */
 export const propertyStatuses = [
   "AVAILABLE",
   "UNDER_OFFER",
@@ -153,16 +161,34 @@ export const createPropertySchema = z.object({
 
 export const updatePropertySchema = createPropertySchema.partial();
 
+export const listingStatuses = [
+  "DRAFT",
+  "PUBLISHED",
+  "PAUSED",
+  "EXPIRED",
+  "REJECTED",
+  "DELETED",
+] as const;
+
+// Must stay in sync with the Prisma VerificationStatus enum —
+// (PENDING | VERIFIED | REJECTED). There is deliberately no IN_REVIEW:
+// staff either have looked at it or have not.
+export const verificationStatuses = [
+  "PENDING",
+  "VERIFIED",
+  "REJECTED",
+] as const;
+
 export const updatePropertyStatusSchema = z.object({
   propertyStatus: z.enum(propertyStatuses),
 });
 
 export const verifyPropertySchema = z.object({
-  isVerified: z.boolean(),
+  verificationStatus: z.enum(verificationStatuses),
 });
 
-export const toggleActiveSchema = z.object({
-  isActive: z.boolean(),
+export const setListingStatusSchema = z.object({
+  listingStatus: z.enum(listingStatuses),
 });
 
 export const setImagesSchema = z.object({

@@ -47,6 +47,8 @@ model Member {
   role   Role   @relation(fields: [roleId], references: [id])
 
   // --- Status ---
+  // Soft delete ke liye MemberStatus.REMOVED (row delete nahi hoti —
+  // history aur audit trail bache rehte hain).
   status MemberStatus @default(ACTIVE)
 
   // --- When Joined ---
@@ -56,11 +58,61 @@ model Member {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  // Ek user ek context me ek hi baar member ho sakta hai
-  // Example: user_5 org_1 me sirf ek baar ho sakta hai
-  @@unique([scope, contextId, userId])
+  // ===========================================================
+  // UNIQUENESS — partial indexes (not raw SQL, see @@unique below)
+  // ===========================================================
+  // Pehle @@unique([scope, contextId, userId]) tha.
+  // WO GALAT THA — Postgres me NULLs DISTINCT hote hain, matlab
+  // UNIQUE(scope, context_id, user_id) do PLATFORM rows ko allow
+  // karta tha kyunki dono ka context_id = NULL hai aur
+  // (PLATFORM, NULL, user_5) == (PLATFORM, NULL, user_5) maana
+  // jaata hi nahi.
+  //
+  // Isliye do partial uniques:
+  //   org rows      → context_id IS NOT NULL me unique
+  //   platform rows → context_id IS NULL me unique
+  //
+  // previewFeatures = ["partialIndexes"] (schema.prisma) chahiye.
+  // Prisma inhe apne schema se manage karta hai, to raw SQL ki tarah
+  // schema-vs-DB drift nahi ho sakta.
+
+  // ===========================================================
+  // RELATIONS
+  // ===========================================================
+  // Member ke through is user ko diye gaye leads / site visits /
+  // buyer questions (org sellers me manual assignment ke liye).
+  // Relation names alag hain kyunki teen alag models hain —
+  // Prisma ek hi relation name do baar use nahi kar sakta.
+  //
+  // Teeno me Member.id reference hota hai (users nahi), kyunki
+  // assignment "org ka member" hai, "user" nahi — ek user kisi
+  // aur org me bhi ho sakta hai aur assignment us specific
+  // org membership se tied hai.
+
+  // Leads is member ko di gayi
+  assignedLeads LeadForm[] @relation("LeadAssignee")
+
+  // Site visits is member ko di gayi
+  assignedSiteVisits SiteVisit[] @relation("SiteVisitAssignee")
+
+  // Buyer questions is member ko di gaye
+  assignedBuyerQuestions BuyerQuestion[] @relation("BuyerQuestionAssignee")
+
+  // Organization interest inquiries is member ko di gayi
+  assignedOrganizationInquiries OrganizationInquiry[] @relation("OrganizationInquiryAssignee")
+
+  // NOTE: `name:` is deliberately NOT set on these. Prisma derives index
+  // names for partial @@unique from the columns, and ignores a custom
+  // name — so the derived names below are what must match the database:
+  //   members_scope_context_id_user_id_key  (context_id IS NOT NULL)
+  //   members_scope_user_id_key             (context_id IS NULL)
+  @@unique([scope, contextId, userId], where: { contextId: { not: null } })
+  @@unique([scope, userId], where: { contextId: null })
+
   @@index([userId])
   @@index([roleId])
   @@index([contextId])
+  @@index([scope, userId])
+  @@index([status])
   @@map("members")
 }

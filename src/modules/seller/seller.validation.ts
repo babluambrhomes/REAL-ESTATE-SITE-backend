@@ -1,15 +1,5 @@
 import { z } from "zod";
 
-const organizationSchema = z.object({
-  name: z.string().min(2, "Organization name must be at least 2 characters").max(200).trim(),
-  description: z.string().max(5000).trim().optional(),
-  website: z.string().url("Enter a valid website URL").trim().optional(),
-  registrationNumber: z.string().trim().optional(),
-  gstNumber: z.string().trim().optional(),
-  yearEstablished: z.number().int().min(1900).max(2100).optional(),
-  employeeCount: z.number().int().min(1).optional(),
-});
-
 const profileFields = {
   headline: z.string().max(200).trim().optional(),
   about: z.string().max(5000).trim().optional(),
@@ -37,33 +27,34 @@ const profileFields = {
   leadPreferences: z.record(z.string(), z.any()).optional(),
 };
 
-export const becomeSellerSchema = z
-  .object({
-    sellerType: z.enum(["INDIVIDUAL", "ORGANIZATION"]),
-    name: z.string().min(2).max(200).trim().optional(),
-    panNumber: z.string().trim().max(20).optional(),
-    aadhaarNumber: z.string().trim().max(20).optional(),
-    reraNumber: z.string().trim().max(50).optional(),
-    organization: organizationSchema.optional(),
-    ...profileFields,
-    categoryId: z.string().uuid("Invalid category"),
-  })
-  .refine(
-    (d) => {
-      if (d.sellerType === "ORGANIZATION" && !d.name && !d.organization?.name) {
-        return false;
-      }
-      return true;
-    },
-    { message: "Organization name is required" }
-  );
+/**
+ * Individual seller onboarding only.
+ *
+ * Companies do NOT come through here. An organization is created by
+ * POST /organizations, which sets up the company, its roles and its owner's
+ * membership in one transaction. Having both paths write a SellerProfile
+ * meant the two could disagree about who owns the public profile, so the
+ * company branch was removed from this schema entirely.
+ */
+export const becomeSellerSchema = z.object({
+  /** Display name; also becomes the person's first name if it differs. */
+  name: z.string().min(2).max(200).trim().optional(),
+  panNumber: z.string().trim().max(20).optional(),
+  aadhaarNumber: z.string().trim().max(20).optional(),
+  reraNumber: z.string().trim().max(50).optional(),
+  ...profileFields,
+  categoryId: z.string().uuid("Invalid category"),
+});
 
+/**
+ * Updating an individual profile. Companies edit their own business details
+ * through PATCH /organizations/:orgId.
+ */
 export const updateSellerSchema = z.object({
   name: z.string().min(2).max(200).trim().optional(),
   panNumber: z.string().trim().max(20).optional(),
   aadhaarNumber: z.string().trim().max(20).optional(),
   reraNumber: z.string().trim().max(50).optional(),
-  organization: organizationSchema.optional(),
   ...profileFields,
 });
 

@@ -79,5 +79,22 @@ model PropertyVariant {
 
   @@unique([propertyId, variantName])
   @@index([propertyId, isActive])
+
+  // --- Partial indexes for the search LATERAL query ---
+  // Pehle ye dono raw SQL migration se banaye the. Ab previewFeatures
+  // = ["partialIndexes"] enable hone se ye SCHEMA me declare ho sakte hain,
+  // matlab Prisma unhe manage karta hai — schema-vs-DB drift nahi hoga.
+  // (Pehle raw SQL wale the: agar koi manually drop karta to Prisma ko pata
+  //  hi nahi chalta tha.)
+  //
+  // property_variants_property_price_active_idx:
+  //   "cheapest active variant" — LATERAL ORDER BY price LIMIT 1
+  //   sirf active configs par, taaki inactive variants scan na karein
+  @@index([propertyId, price], where: { isActive: true }, map: "property_variants_property_price_active_idx")
+
+  // property_variants_property_bedrooms_active_idx:
+  //   BHK filter wale LATERAL scans
+  @@index([propertyId, bedrooms], where: { isActive: true }, map: "property_variants_property_bedrooms_active_idx")
+
   @@map("property_variants")
 }

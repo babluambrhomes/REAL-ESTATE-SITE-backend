@@ -43,6 +43,13 @@ model SiteVisit {
   propertyId String?  @map("property_id") @db.Uuid
   property   Property? @relation(fields: [propertyId], references: [id], onDelete: SetNull)
 
+  // --- Manual Assignment (optional) ---
+  // ORG sellers ke liye: visit org ke shared pool me aati hai,
+  // phir kisi member ko assign hoti hai.
+  // INDIVIDUAL sellers ke liye hamesha NULL.
+  assignedToMemberId String? @map("assigned_to_member_id") @db.Uuid
+  assignedToMember   Member? @relation("SiteVisitAssignee", fields: [assignedToMemberId], references: [id], onDelete: SetNull)
+
   // --- Visit Slot ---
   visitDate DateTime  @map("visit_date")
   startTime DateTime  @map("start_time")
@@ -78,5 +85,7 @@ model SiteVisit {
   @@index([organizationId])
   @@index([userId])
   @@index([propertyId])
+  // "my visits" — assigned member ke hisaab se filter
+  @@index([assignedToMemberId, status])
   @@map("site_visits")
 }

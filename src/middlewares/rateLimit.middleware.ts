@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { ApiError } from "../utils";
+import { AuthRequest } from "../types";
 import redisConnection from "../config/redis";
 
 const rateLimit = (options: {
@@ -57,4 +58,27 @@ const otpRateLimit = rateLimit({
   message: "Too many OTP requests, please try again after 5 minutes",
 });
 
-export { rateLimit, authRateLimit, apiRateLimit, otpRateLimit };
+// Preset: buyer → seller sawaal (per-user, sirf login user — spam rokne ke liye)
+const buyerQuestionRateLimit = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  maxRequests: 5,
+  message: "Too many questions asked, please try again later",
+  keyBy: (req) => `buyerQuestion:${(req as AuthRequest).user?.id ?? "anonymous"}`,
+});
+
+// Preset: lead create (per-user — call/whatsapp/form spam rokne ke liye)
+const leadRateLimit = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  maxRequests: 20,
+  message: "Too many lead submissions, please try again later",
+  keyBy: (req) => `lead:${(req as AuthRequest).user?.id ?? "anonymous"}`,
+});
+
+export {
+  rateLimit,
+  authRateLimit,
+  apiRateLimit,
+  otpRateLimit,
+  buyerQuestionRateLimit,
+  leadRateLimit,
+};

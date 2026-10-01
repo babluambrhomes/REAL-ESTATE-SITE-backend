@@ -2,6 +2,7 @@ import { Response, NextFunction } from "express";
 import prisma from "../config/prisma";
 import { ApiError } from "../utils";
 import { AuthRequest, AuthUser } from "../types";
+import { UserStatus } from "../generated/prisma/enums";
 import { verifyAccessToken } from "../helpers";
 
 const userSelect = {
@@ -39,6 +40,25 @@ const userSelect = {
   },
 } as const;
 
+/**
+ * Which account states may hold a live session.
+ *
+ * PENDING is deliberately NOT blocked. /auth/private-otp-verify — the only
+ * way an email/password signup becomes ACTIVE — sits behind `protect`, so
+ * rejecting PENDING here would make email verification unreachable and lock
+ * those users out permanently. Phone-only and Google signups are ACTIVE from
+ * the start, so nothing unverified can act as a buyer, seller or org owner
+ * anyway: those all gate on the ACTIVE row in their own profile.
+ */
+const assertSessionAllowed = (status: UserStatus): void => {
+  if (status === UserStatus.SUSPENDED) {
+    throw new ApiError(403, "Your account is suspended. Please contact support.");
+  }
+  if (status === UserStatus.DEACTIVATED) {
+    throw new ApiError(403, "This account has been deactivated");
+  }
+};
+
 const protect = async (
   req: AuthRequest,
   res: Response,
@@ -63,9 +83,10 @@ const protect = async (
       throw new ApiError(401, "User not found");
     }
 
-    if (user.status === "SUSPENDED" || user.status === "DEACTIVATED") {
-      throw new ApiError(403, "Account is not accessible");
-    }
+    // Checked against the database on every request rather than trusted from
+    // the token, so a suspension takes effect immediately instead of after
+    // the access token expires.
+    assertSessionAllowed(user.status);
 
     req.user = user as AuthUser;
     next();
@@ -104,7 +125,16 @@ const optionalAuth = async (
       select: userSelect,
     });
 
-    if (!user || user.status === "SUSPENDED" || user.status === "DEACTIVATED") {
+    if (!user) {
+      next();
+      return;
+    }
+
+    try {
+      assertSessionAllowed(user.status);
+    } catch {
+      // A suspended user is treated as anonymous on public routes, so their
+      // own "my listings" page renders as logged-out rather than 403ing.
       next();
       return;
     }
@@ -116,43 +146,4 @@ const optionalAuth = async (
   }
 };
 
-const authorize = (...roleNames: string[]) => {
-  return (req: AuthRequest, _res: Response, next: NextFunction): void => {
-    if (!req.user) {
-      throw new ApiError(401, "Not authenticated");
-    }
-
-    const hasRole = req.user.memberships.some((m) =>
-      roleNames.includes(m.role.roleName)
-    );
-
-    if (!hasRole) {
-      throw new ApiError(403, "You are not authorized to access this route");
-    }
-
-    next();
-  };
-};
-
-const authorizePlatformRole = (...platformRoleNames: string[]) => {
-  return (req: AuthRequest, _res: Response, next: NextFunction): void => {
-    if (!req.user) {
-      throw new ApiError(401, "Not authenticated");
-    }
-
-    const isPlatformStaff = req.user.memberships.some(
-      (m) =>
-        m.scope === "PLATFORM" &&
-        m.status === "ACTIVE" &&
-        platformRoleNames.includes(m.role.roleName)
-    );
-
-    if (!isPlatformStaff) {
-      throw new ApiError(403, "Platform access required");
-    }
-
-    next();
-  };
-};
-
-export { protect, optionalAuth, authorize, authorizePlatformRole, userSelect };
+export { protect, optionalAuth, userSelect, assertSessionAllowed };

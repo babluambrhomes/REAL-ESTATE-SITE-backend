@@ -2,6 +2,7 @@ import { Prisma } from "../../generated/prisma/client";
 import prisma from "../../config/prisma";
 import { getPaginationParams, buildPagination, buildCacheKey, withCache, getCacheVersion } from "../../helpers";
 import { SearchQueryInput } from "./search.validation";
+import { PUBLIC_PROPERTY_STATUSES } from "../property/property.select";
 import { trackTrendingSearch } from "./suggestions.service";
 import type { SearchResponse, SearchMeta } from "./search.types";
 
@@ -84,11 +85,24 @@ const executeSearch = async (
   // --- Build dynamic WHERE conditions ---
   const conditions: Prisma.Sql[] = [];
 
-  // Base filters (always active)
-  conditions.push(Prisma.sql`p."is_active" = true`);
-  conditions.push(Prisma.sql`p."deleted_at" IS NULL`);
-  // Public search only exposes available / under-offer listings
-  conditions.push(Prisma.sql`p."property_status" IN ('AVAILABLE', 'UNDER_OFFER')`);
+  // Base filters (always active).
+  //
+  // These MUST stay identical to the Prisma-side filters in
+  // property.service.ts listPublicProperties — this query re-implements
+  // visibility in raw SQL for ranking/performance, and if the two drift
+  // the symptom is "search shows results the listing page does not",
+  // which is a genuine data-exposure bug rather than a cosmetic one.
+  //
+  // The status list is interpolated from the shared PUBLIC_PROPERTY_STATUSES
+  // allowlist rather than spelled out again, which is what makes "identical"
+  // enforceable instead of aspirational. Values are enum members, never user
+  // input.
+  conditions.push(Prisma.sql`p."listing_status" = 'PUBLISHED'`);
+  conditions.push(
+    Prisma.sql`p."property_status" IN (${Prisma.join(
+      PUBLIC_PROPERTY_STATUSES.map((s) => Prisma.sql`'${s}'`)
+    )})`
+  );
 
   // --- Text search via tsvector ---
   if (safeHasText) {
@@ -146,14 +160,18 @@ const executeSearch = async (
   if (query.isFeatured !== undefined) {
     conditions.push(Prisma.sql`p."is_featured" = ${query.isFeatured === "true"}`);
   }
-  if (query.isVerified !== undefined) {
-    conditions.push(Prisma.sql`p."is_verified" = ${query.isVerified === "true"}`);
+  if (query.verificationStatus) {
+    conditions.push(Prisma.sql`p."verification_status" = ${query.verificationStatus}`);
   }
   if (query.sellerSlug) {
+    // Property no longer carries a seller_id, so a seller page filter has
+    // to reach the profile through whichever side owns the listing.
     conditions.push(
       Prisma.sql`EXISTS (
         SELECT 1 FROM "seller_profiles" sp
-        WHERE sp."id" = p."seller_id" AND sp."slug" = ${query.sellerSlug}
+        LEFT JOIN "organizations" o ON o."id" = sp."organization_id"
+        WHERE sp."slug" = ${query.sellerSlug}
+          AND (sp."user_id" = p."user_id" OR o."id" = p."organization_id")
       )`
     );
   }
@@ -259,7 +277,8 @@ const executeSearch = async (
         s."latitude",
         s."longitude",
         s."isFeatured",
-        s."isVerified",
+        s."listingStatus",
+        s."verificationStatus",
         s."viewsCount",
         s."likesCount",
         s."averageRating",
@@ -310,7 +329,8 @@ const executeSearch = async (
           p."latitude",
           p."longitude",
           p."is_featured" AS "isFeatured",
-          p."is_verified" AS "isVerified",
+          p."listing_status" AS "listingStatus",
+          p."verification_status" AS "verificationStatus",
           p."views_count" AS "viewsCount",
           p."likes_count" AS "likesCount",
           p."average_rating" AS "averageRating",
@@ -342,7 +362,27 @@ const executeSearch = async (
           ${distanceInnerExpr}
 
         FROM "properties" p
-        INNER JOIN "seller_profiles" sp ON sp."id" = p."seller_id"
+        LEFT JOIN LATERAL (
+          -- Property has no seller_id any more. Its public seller is the
+          -- organization's profile when it belongs to an org, otherwise
+          -- the creating user's own profile. Exactly one of those two can
+          -- match (both columns are unique), so LIMIT 1 is unambiguous.
+          --
+          -- LEFT JOIN, not INNER: a listing whose seller profile was
+          -- removed must still be searchable — dropping it from results
+          -- silently is worse than showing it without a seller card.
+          SELECT
+            sp."id",
+            sp."slug",
+            sp."reference_code",
+            sp."headline",
+            sp."logo_url",
+            sp."seller_type"
+          FROM "seller_profiles" sp
+          WHERE sp."organization_id" = p."organization_id"
+             OR (p."organization_id" IS NULL AND sp."user_id" = p."user_id")
+          LIMIT 1
+        ) sp ON true
         INNER JOIN LATERAL (
           SELECT
             pv."id",
@@ -393,7 +433,8 @@ const executeSearch = async (
       longitude: row.longitude,
       featuredImage: imgs.find((i) => i.isFeatured)?.url ?? imgs[0]?.url ?? null,
       isFeatured: row.isFeatured,
-      isVerified: row.isVerified,
+      listingStatus: row.listingStatus,
+      verificationStatus: row.verificationStatus,
       viewsCount: row.viewsCount,
       likesCount: row.likesCount,
       averageRating: row.averageRating,
@@ -407,14 +448,19 @@ const executeSearch = async (
       textRank: row.textRank,
       snippet: row.snippet,
 
-      seller: {
-        id: row.sellerId,
-        slug: row.sellerSlug,
-        referenceCode: row.sellerReferenceCode,
-        headline: row.sellerHeadline,
-        logoUrl: row.sellerLogoUrl,
-        sellerType: row.sellerType,
-      },
+      // Null when the property has no reachable seller profile (e.g. the
+      // seller was hard-removed). Emitting a half-populated object here
+      // would make clients treat it as a real seller with no name.
+      seller: row.sellerId
+        ? {
+            id: row.sellerId,
+            slug: row.sellerSlug,
+            referenceCode: row.sellerReferenceCode,
+            headline: row.sellerHeadline,
+            logoUrl: row.sellerLogoUrl,
+            sellerType: row.sellerType,
+          }
+        : null,
 
       variant: {
         id: row.variantId,

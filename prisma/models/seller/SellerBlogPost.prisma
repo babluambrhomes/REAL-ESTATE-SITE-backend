@@ -23,7 +23,12 @@ model SellerBlogPost {
 
   // --- Content ---
   title      String
-  slug       String  @unique // URL: /seller/abc/blog/my-post
+  // URL: /blog-posts/home-loan-tips
+  //
+  // UNIQUE across the whole table, not per seller — a post URL names nobody,
+  // so it stays readable and stable if the seller changes. Collisions get a
+  // -2, -3 suffix (see uniquePostSlug in blogPost.service).
+  slug       String  @unique
   content    String  @db.Text
   excerpt    String? // chhota summary
   coverImage String? @map("cover_image")
@@ -38,6 +43,9 @@ model SellerBlogPost {
   metaKeywords    String? @map("meta_keywords")
 
   // --- Status ---
+  // Soft delete BlogStatus.ARCHIVED se — alag deletedAt NAHI.
+  // Reason: is_system_role jaisa "status enum hi single source of truth"
+  // pattern — boolean + timestamp drift karte hain.
   status      BlogStatus @default(DRAFT)
   publishedAt DateTime?  @map("published_at")
 
@@ -45,9 +53,8 @@ model SellerBlogPost {
   viewsCount Int @default(0) @map("views_count")
 
   // --- Timestamps ---
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @updatedAt @map("updated_at")
-  deletedAt DateTime? @map("deleted_at") // soft delete
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   // Post pe user interactions (LIKE/DISLIKE/COMMENT)
   // SellerBlogPost 1 ←→ Many Interactions

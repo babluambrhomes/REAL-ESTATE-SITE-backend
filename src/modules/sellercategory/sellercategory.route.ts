@@ -7,18 +7,17 @@ import {
   deleteCategory,
   uploadCategoryImage,
 } from "./sellercategory.controller";
-import {
-  protect,
-  authorizePlatformRole,
-  validate,
-  upload,
-} from "../../middlewares";
+import { protect, requirePermission, validate, upload } from "../../middlewares";
+import { PermissionScope } from "../../generated/prisma/enums";
 import { createCategorySchema, updateCategorySchema } from "./sellercategory.validation";
 
 const router = Router();
 
 router.use(protect);
-router.use(authorizePlatformRole("Super Admin", "Staff"));
+// Permission rather than a role name: the role list is data, the permission
+// is the capability this route actually needs. Renaming "Staff" to something
+// else must not silently open or close category management.
+router.use(requirePermission(PermissionScope.PLATFORM, "category:manage"));
 
 router.get("/", listCategories);
 router.post("/", validate(createCategorySchema), createCategory);

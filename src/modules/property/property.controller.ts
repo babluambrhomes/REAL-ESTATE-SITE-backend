@@ -1,6 +1,8 @@
-import { Response } from "express";
+﻿import { Response } from "express";
 import { ApiError, ApiResponse, asyncHandler } from "../../utils";
 import { AuthRequest } from "../../types";
+import { requireSellerContext } from "../../helpers";
+import { ListingStatus, VerificationStatus } from "../../generated/prisma/enums";
 import {
   CreatePropertyInput,
   UpdatePropertyInput,
@@ -31,7 +33,7 @@ const getPublicProperty = asyncHandler(async (req: AuthRequest, res: Response) =
 
 const getMyProperties = asyncHandler(async (req: AuthRequest, res: Response) => {
   const result = await propertyService.getMyProperties(
-    (req as any).sellerId,
+    requireSellerContext(req),
     req.query as unknown as { page?: number; limit?: number; propertyStatus?: string }
   );
   res.status(200).json(new ApiResponse(200, result));
@@ -39,7 +41,7 @@ const getMyProperties = asyncHandler(async (req: AuthRequest, res: Response) => 
 
 const getMyProperty = asyncHandler(async (req: AuthRequest, res: Response) => {
   const property = await propertyService.getMyProperty(
-    (req as any).sellerId,
+    requireSellerContext(req),
     String(req.params.id)
   );
   res.status(200).json(new ApiResponse(200, property));
@@ -47,7 +49,7 @@ const getMyProperty = asyncHandler(async (req: AuthRequest, res: Response) => {
 
 const createProperty = asyncHandler(async (req: AuthRequest, res: Response) => {
   const property = await propertyService.createProperty(
-    (req as any).sellerId,
+    requireSellerContext(req),
     req.body as CreatePropertyInput
   );
   res.status(201).json(new ApiResponse(201, property, "Property created"));
@@ -55,7 +57,7 @@ const createProperty = asyncHandler(async (req: AuthRequest, res: Response) => {
 
 const updateProperty = asyncHandler(async (req: AuthRequest, res: Response) => {
   const property = await propertyService.updateProperty(
-    (req as any).sellerId,
+    requireSellerContext(req),
     String(req.params.id),
     req.body as UpdatePropertyInput
   );
@@ -64,7 +66,7 @@ const updateProperty = asyncHandler(async (req: AuthRequest, res: Response) => {
 
 const updatePropertyStatus = asyncHandler(async (req: AuthRequest, res: Response) => {
   const property = await propertyService.updatePropertyStatus(
-    (req as any).sellerId,
+    requireSellerContext(req),
     String(req.params.id),
     (req.body as { propertyStatus: string }).propertyStatus
   );
@@ -73,7 +75,7 @@ const updatePropertyStatus = asyncHandler(async (req: AuthRequest, res: Response
 
 const deleteProperty = asyncHandler(async (req: AuthRequest, res: Response) => {
   const result = await propertyService.softDeleteProperty(
-    (req as any).sellerId,
+    requireSellerContext(req),
     String(req.params.id)
   );
   res.status(200).json(new ApiResponse(200, result, "Property deleted"));
@@ -87,7 +89,7 @@ const uploadImages = asyncHandler(async (req: AuthRequest, res: Response) => {
   }
 
   const property = await propertyService.addImages(
-    (req as any).sellerId,
+    requireSellerContext(req),
     String(req.params.id),
     files
   );
@@ -96,7 +98,7 @@ const uploadImages = asyncHandler(async (req: AuthRequest, res: Response) => {
 
 const setImages = asyncHandler(async (req: AuthRequest, res: Response) => {
   const property = await propertyService.setImageOrder(
-    (req as any).sellerId,
+    requireSellerContext(req),
     String(req.params.id),
     (req.body as { images: { url: string; isFeatured?: boolean }[] }).images
   );
@@ -105,7 +107,7 @@ const setImages = asyncHandler(async (req: AuthRequest, res: Response) => {
 
 const removeImages = asyncHandler(async (req: AuthRequest, res: Response) => {
   const property = await propertyService.removeImage(
-    (req as any).sellerId,
+    requireSellerContext(req),
     String(req.params.id),
     (req.body as { url: string }).url
   );
@@ -114,7 +116,7 @@ const removeImages = asyncHandler(async (req: AuthRequest, res: Response) => {
 
 const addVariant = asyncHandler(async (req: AuthRequest, res: Response) => {
   const variant = await propertyService.addVariant(
-    (req as any).sellerId,
+    requireSellerContext(req),
     String(req.params.id),
     req.body as CreateVariantInput
   );
@@ -123,7 +125,7 @@ const addVariant = asyncHandler(async (req: AuthRequest, res: Response) => {
 
 const updateVariant = asyncHandler(async (req: AuthRequest, res: Response) => {
   const variant = await propertyService.updateVariant(
-    (req as any).sellerId,
+    requireSellerContext(req),
     String(req.params.id),
     String(req.params.variantId),
     req.body as UpdateVariantInput
@@ -133,7 +135,7 @@ const updateVariant = asyncHandler(async (req: AuthRequest, res: Response) => {
 
 const deleteVariant = asyncHandler(async (req: AuthRequest, res: Response) => {
   const result = await propertyService.deleteVariant(
-    (req as any).sellerId,
+    requireSellerContext(req),
     String(req.params.id),
     String(req.params.variantId)
   );
@@ -148,7 +150,7 @@ const uploadVariantImages = asyncHandler(async (req: AuthRequest, res: Response)
   }
 
   const variant = await propertyService.addVariantImages(
-    (req as any).sellerId,
+    requireSellerContext(req),
     String(req.params.id),
     String(req.params.variantId),
     files
@@ -162,9 +164,10 @@ const adminListProperties = asyncHandler(async (req: AuthRequest, res: Response)
       page?: number;
       limit?: number;
       propertyStatus?: string;
-      isVerified?: string;
-      isActive?: string;
-      includeDeleted?: string;
+      listingStatus?: string;
+      verificationStatus?: string;
+      organizationId?: string;
+      userId?: string;
     }
   );
   res.status(200).json(new ApiResponse(200, result));
@@ -174,18 +177,18 @@ const verifyProperty = asyncHandler(async (req: AuthRequest, res: Response) => {
   const property = await propertyService.verifyProperty(
     req.user!.id,
     String(req.params.id),
-    (req.body as { isVerified: boolean }).isVerified
+    (req.body as { verificationStatus: VerificationStatus }).verificationStatus
   );
   res.status(200).json(new ApiResponse(200, property, "Property verification updated"));
 });
 
-const togglePropertyActive = asyncHandler(async (req: AuthRequest, res: Response) => {
-  const property = await propertyService.togglePropertyActive(
+const setPropertyListingStatus = asyncHandler(async (req: AuthRequest, res: Response) => {
+  const property = await propertyService.setPropertyListingStatus(
     req.user!.id,
     String(req.params.id),
-    (req.body as { isActive: boolean }).isActive
+    (req.body as { listingStatus: ListingStatus }).listingStatus
   );
-  res.status(200).json(new ApiResponse(200, property, "Property status updated"));
+  res.status(200).json(new ApiResponse(200, property, "Property listing status updated"));
 });
 
 export {
@@ -206,5 +209,5 @@ export {
   uploadVariantImages,
   adminListProperties,
   verifyProperty,
-  togglePropertyActive,
+  setPropertyListingStatus,
 };
