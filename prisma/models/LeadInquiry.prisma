@@ -1,0 +1,126 @@
+// ============================================================
+// TABLE: LEAD INQUIRIES (Unified Lead Hub)
+// ============================================================
+// Teen tarah ke leads ek hi table me — `type` discriminator se alag:
+//   GENERAL              → Enquiry form / WhatsApp / Call / Callback / Contact
+//   ORGANIZATION_INQUIRY → Organization public page ka "interested" form
+//   SITE_VISIT           → Property/Project site visit booking (date + slot)
+//
+// Sabhi rows ka common scaffold (contact + attribution + assignment) ek
+// jagah hai, isliye sabhi leads ek hi place se collect/query ho sakte hain.
+//
+// Type-specific rules APP LAYER pe enforce hote hain (db push use hota hai,
+// isliye DB CHECK constraints nahi rakhe):
+//   GENERAL              → sellerId || organizationId || propertyId me se kam se kam ek
+//   ORGANIZATION_INQUIRY → organizationId required, termsAccepted = true
+//   SITE_VISIT           → visitDate + startTime required, endTime > startTime, future time
+//   Sab me               → create pe login mandatory (userId set), name + phone required
+//
+// Status bhi type pe depend karta hai:
+//   GENERAL / ORGANIZATION_INQUIRY → NEW, CONTACTED, SITE_VISIT, NEGOTIATION, WON, LOST
+//   SITE_VISIT                     → NEW, CONFIRMED, RESCHEDULED, COMPLETED, CANCELLED, NO_SHOW
+//
+// Contact snapshot (name/email/phone) isliye copy hota hai ki user/seller/org
+// delete hone par bhi lead kaise bhi na khoye (FKs onDelete: SetNull).
+//
+// Relations:
+//   LeadInquiry Many ←→ 1 User (buyer)
+//   LeadInquiry Many ←→ 1 SellerProfile (optional attribution)
+//   LeadInquiry Many ←→ 1 Organization (optional attribution)
+//   LeadInquiry Many ←→ 1 Property (optional)
+//   LeadInquiry Many ←→ 1 Member (assignee, optional)
+// ============================================================
+
+model LeadInquiry {
+  id String @id @default(uuid()) @db.Uuid
+
+  // --- Type ---
+  type LeadType
+
+  // --- Source ---
+  // Lead kahan se aaya (form/whatsapp/call/...)
+  source LeadSource @default(ENQUIRY_FORM)
+
+  // --- Status ---
+  status LeadStatus @default(NEW)
+
+  // --- Attribution / targets ---
+  // DB pe optional, par type ke hisaab se app validate karta hai.
+  userId String? @map("user_id") @db.Uuid
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  // Lead kis public seller profile se aayi (attribution)
+  sellerId String?        @map("seller_id") @db.Uuid
+  seller   SellerProfile? @relation(fields: [sellerId], references: [id], onDelete: SetNull)
+
+  // Lead kis organization ke liye hai (ORGANIZATION_INQUIRY me required)
+  organizationId String?       @map("organization_id") @db.Uuid
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+
+  // Lead kis property se aayi (optional)
+  propertyId String?   @map("property_id") @db.Uuid
+  property   Property? @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+
+  // --- Manual Assignment (optional) ---
+  // ORG sellers me lead org ke shared pool me aati hai, phir kisi member
+  // ko assign hoti hai. INDIVIDUAL seller ke liye hamesha NULL.
+  assignedToMemberId String? @map("assigned_to_member_id") @db.Uuid
+  assignedToMember   Member? @relation("LeadInquiryAssignee", fields: [assignedToMemberId], references: [id], onDelete: SetNull)
+
+  // --- Contact Snapshot ---
+  // Booking time ka contact info. User delete hone par bhi lead bacha rahe.
+  name    String
+  email   String?
+  phone   String
+  message String? @db.Text
+
+  // --- Internal Notes (history) ---
+  // Seller/org side notes (buyer ko nahi dikhte). Har naya note append hota
+  // hai — purana overwrite nahi hota.
+  comments String[] @default([])
+
+  // --- Recent Activity ---
+  // Append-only audit trail (kab kya hua). Har entry:
+  // { "action":"STATUS_CHANGED", "at":"2026-10-30T10:15:00Z",
+  //   "byUserId":"uuid|null", "from":"NEW", "to":"CONTACTED", "note":"..." }
+  // action: CREATED | STATUS_CHANGED | COMMENT_ADDED | ASSIGNED | RESCHEDULED | CANCELLED
+  // App layer append + trim karta hai (last RECENT_ACTIVITY_LIMIT entries).
+  recentActivity Json @default("[]") @db.JsonB @map("recent_activity")
+
+  // --- Organization Inquiry Fields ---
+  // Free text (e.g. "50L - 1Cr") — app layer pe validate karna.
+  budgetRange      String? @map("budget_range")
+  preferredProject String? @map("preferred_project")
+
+  // Terms consent — compliance evidence
+  termsAccepted   Boolean   @default(false) @map("terms_accepted")
+  termsAcceptedAt DateTime? @map("terms_accepted_at")
+
+  // --- Site Visit Fields ---
+  visitDate   DateTime? @map("visit_date")
+  startTime   DateTime? @map("start_time")
+  endTime     DateTime? @map("end_time")
+  userAddress String?   @map("user_address") @db.Text
+
+  // Status timestamps — current status ko reflect karte hain
+  confirmedAt DateTime? @map("confirmed_at")
+  cancelledAt DateTime? @map("cancelled_at")
+
+  // --- Timestamps   ---
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Seller / org inbox (status + recency)
+  @@index([type, status, createdAt])
+  @@index([sellerId, status, createdAt])
+  @@index([organizationId, status, createdAt])
+  // Buyer's own leads (dashboard)
+  @@index([userId, createdAt])
+  @@index([propertyId])
+  // "my leads" — assigned member ke hisaab se filter
+  @@index([assignedToMemberId, status])
+  @@index([source])
+  // Upcoming site visits
+  @@index([type, startTime])
+  @@map("lead_inquiries")
+}

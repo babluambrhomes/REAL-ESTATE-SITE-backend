@@ -56,6 +56,8 @@ export const availabilityStatuses = [
   "NEW_LAUNCH",
 ] as const;
 
+export const priceUnits = ["TOTAL", "PER_MONTH", "PER_YEAR"] as const;
+
 const decimalString = (label: string) =>
   z.union([
     z.string().regex(/^-?\d+(\.\d+)?$/, `${label} must be a valid number`),
@@ -81,14 +83,25 @@ const videoObject = z.object({
   title: z.string().trim().max(300).optional(),
 });
 
+const floorPlanObject = z.object({
+  url: z.string().trim().min(1, "Floor plan url is required").max(2000),
+  title: z.string().trim().max(300).optional(),
+});
+
 export const createVariantSchema = z.object({
   variantName: z.string().trim().min(1, "Variant name is required").max(100),
   bedrooms: z.number().int().min(0).optional(),
   bathrooms: z.number().int().min(0).optional(),
   balconies: z.number().int().min(0).optional(),
   price: decimalString("Price"),
+  priceUnit: z.enum(priceUnits).optional(),
+  totalPrice: decimalString("Total price").optional(),
   mrpPrice: decimalString("MRP price").optional(),
   pricePerSqft: decimalString("Price per sqft").optional(),
+  discountPercent: decimalString("Discount percent").optional(),
+  maintenanceCharges: decimalString("Maintenance charges").optional(),
+  bookingAmount: decimalString("Booking amount").optional(),
+  otherCharges: decimalString("Other charges").optional(),
   totalArea: decimalString("Total area"),
   totalAreaUnit: z
     .enum(["sqft", "sqmt", "sqyd", "hectare", "acre"])
@@ -108,7 +121,11 @@ export const createVariantSchema = z.object({
   furnishingStatus: z.enum(furnishingStatuses).optional(),
   furnishingItems: z.array(z.record(z.string(), z.any())).optional(),
   images: z.array(imageObject).optional(),
+  floorPlans: z.array(floorPlanObject).optional(),
+  tour360: z.array(videoObject).optional(),
   brochure: z.string().trim().optional(),
+  marketOutlook: z.string().trim().max(5000).optional(),
+  seoKeywords: z.string().trim().max(500).optional(),
   displayOrder: z.number().int().min(0).optional(),
 });
 
@@ -138,6 +155,10 @@ export const createPropertySchema = z.object({
   amenities: z.array(z.string()).optional(),
   nearbyPlaces: z.array(z.string()).optional(),
   societyInfo: z.record(z.string(), z.any()).optional(),
+
+  priceJustification: z.string().trim().max(5000).optional(),
+  otherAdvantages: z.array(z.string().trim().min(1)).optional(),
+  locationAdvantage: z.string().trim().max(5000).optional(),
 
   videos: z.array(videoObject).optional(),
 

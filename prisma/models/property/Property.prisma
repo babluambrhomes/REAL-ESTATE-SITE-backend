@@ -86,6 +86,14 @@ model Property {
   // Society stats: { "towers": 3, "totalUnits": 420, "landAreaAcres": 4.5, "openSpacePercent": 70, "yearsOfTrust": 8 }
   societyInfo  Json? @default("{}") @map("society_info") @db.JsonB
 
+  // --- Marketing & Highlights ---
+  // Price justification / negotiation ke liye seller ka explanation
+  priceJustification String? @map("price_justification") @db.Text
+  // ["Park facing", "Corner unit", "Metro 500m", ...]
+  otherAdvantages    Json?   @default("[]") @map("other_advantages") @db.JsonB
+  // Location ke advantages ka long text
+  locationAdvantage  String? @map("location_advantage") @db.Text
+
   // --- Media ---
   // [{"url": "...", "isFeatured": true}, ...]
   images         Json?   @default("[]") @map("images") @db.JsonB
@@ -148,13 +156,9 @@ model Property {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  // Property pe aaye seller leads/enquiries
-  // Property 1 ←→ Many LeadForms
-  leadForms LeadForm[]
-
-  // Property ki site visits
-  // Property 1 ←→ Many SiteVisits
-  siteVisits SiteVisit[]
+  // Property pe aaye leads / inquiries / site visits
+  // Property 1 ←→ Many LeadInquiries
+  leadInquiries LeadInquiry[]
 
   // Is property page se pooche hue buyer sawaal
   // Property 1 ←→ Many BuyerQuestions

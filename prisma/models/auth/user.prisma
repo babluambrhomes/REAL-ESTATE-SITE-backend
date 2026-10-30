@@ -49,14 +49,8 @@ model User {
   // User ne kin sellers/orgs ko follow kiya
   following SellerFollow[] @relation("FollowsSeller")
 
-  // User ne seller profiles pe jo leads/enquiries bheje
-  leadForms LeadForm[]
-
-  // User ne organizations ki "Interested in this organization?" form bhari
-  organizationInquiries OrganizationInquiry[]
-
-  // User ne book kiye hue site visits
-  siteVisits SiteVisit[]
+  // User ne jo leads / inquiries / site visits bheje (sab ek hi table me)
+  leadInquiries LeadInquiry[]
 
   // User ne sellers ko directly pooche hue sawaal (seller ke jawab ke saath)
   buyerQuestions BuyerQuestion[]

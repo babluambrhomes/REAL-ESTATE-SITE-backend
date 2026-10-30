@@ -204,18 +204,9 @@ model SellerProfile {
   // SellerProfile 1 ←→ Many FAQs
   faqs SellerFaq[]
 
-  // Seller profile/property form se aaye leads/enquiries
-  // SellerProfile 1 ←→ Many LeadForms
-  leadForms LeadForm[]
-
-  // Org ki "Interested in this organization?" form se aayi inquiries
-  // SellerProfile 1 ←→ Many OrganizationInquiries
-  // (attribution link — inquiry mandatory org ko jaati hai, ye optional hai)
-  organizationInquiries OrganizationInquiry[]
-
-  // Buyer ki book ki hui site visits
-  // SellerProfile 1 ←→ Many SiteVisits
-  siteVisits SiteVisit[]
+  // Seller profile / property form / site visit — sabhi leads ek hi table me
+  // SellerProfile 1 ←→ Many LeadInquiries
+  leadInquiries LeadInquiry[]
 
   // Buyers ne directly pooche hue sawaal (inbox)
   // SellerProfile 1 ←→ Many BuyerQuestions

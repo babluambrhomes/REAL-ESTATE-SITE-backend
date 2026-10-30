@@ -197,6 +197,9 @@ const createProperty = async (ctx: SellerContext, data: CreatePropertyInput) => 
     amenities: propertyData.amenities ?? [],
     nearbyPlaces: propertyData.nearbyPlaces ?? [],
     societyInfo: propertyData.societyInfo ?? {},
+    priceJustification: propertyData.priceJustification,
+    otherAdvantages: propertyData.otherAdvantages ?? [],
+    locationAdvantage: propertyData.locationAdvantage,
   };
 
   return withUniqueRetry(() =>

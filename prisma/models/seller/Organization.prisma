@@ -118,19 +118,9 @@ model Organization {
   // Organization 1 ←→ Many Properties
   properties Property[]
 
-  // Organization seller ko aaye leads/enquiries
-  // Organization 1 ←→ Many LeadForms
-  leadForms LeadForm[]
-
-  // Is organization ki "Interested in this organization?" form se aayi inquiries
-  // Organization 1 ←→ Many OrganizationInquiries
-  // (ORG-only form — LeadForm se alag, kyunki budget/preferred project
-  //  structured columns me chahiye)
-  organizationInquiries OrganizationInquiry[]
-
-  // Organization ki properties me book hui site visits
-  // Organization 1 ←→ Many SiteVisits
-  siteVisits SiteVisit[]
+  // Organization ko aaye leads / inquiries / site visits
+  // Organization 1 ←→ Many LeadInquiries
+  leadInquiries LeadInquiry[]
 
   @@index([createdBy])
   @@index([status])

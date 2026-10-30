@@ -214,6 +214,13 @@ enum ListedBy {
   BUILDER // Builder ne list kiya
 }
 
+// Property variant ka price kis basis pe hai
+enum PriceUnit {
+  TOTAL // One-time total price (sale)
+  PER_MONTH // Rent per month
+  PER_YEAR // Rent per year
+}
+
 // Property ki construction/availability status
 enum ConstructionStatus {
   READY_TO_MOVE
@@ -243,14 +250,32 @@ enum RatingStatus {
   HIDDEN // Moderation ne hata diya
 }
 
-// Buyer/seller profile form lead ka status
+// LeadInquiry ka type - teeno lead sources ek hi table me
+enum LeadType {
+  GENERAL // Enquiry form / WhatsApp / Call / Callback / Contact
+  ORGANIZATION_INQUIRY // Organization public page ka "interested" form
+  SITE_VISIT // Property/project site visit booking
+}
+
+// LeadInquiry ka status - pipeline + site visit scheduling dono.
+// Kaunsa status valid hai wo `type` pe depend karta hai (app layer enforce):
+//   GENERAL / ORGANIZATION_INQUIRY → NEW, CONTACTED, SITE_VISIT, NEGOTIATION, WON, LOST
+//   SITE_VISIT                     → NEW, CONFIRMED, RESCHEDULED, COMPLETED, CANCELLED, NO_SHOW
 enum LeadStatus {
+  // Pipeline
   NEW // Naya lead aaya
   CONTACTED // Seller ne contact kiya
   SITE_VISIT // Buyer site visit pe aaya
   NEGOTIATION // Deal ki baat chal rahi hai
   WON // Deal ho gayi
   LOST // Deal nahi hui
+
+  // Site visit scheduling
+  CONFIRMED // Seller ne date/time confirm kar diya
+  RESCHEDULED // Date/time change kar diya
+  COMPLETED // Visit ho gaya
+  CANCELLED // Buyer ya seller ne cancel kiya
+  NO_SHOW // Buyer aaya hi nahi
 }
 
 // Lead kahan se aaya (action jahan se kiya gaya)
@@ -281,16 +306,6 @@ enum BlogCommentStatus {
   PENDING // Moderation me
   PUBLISHED // Public
   HIDDEN // Hata diya
-}
-
-// Site visit booking ka status
-enum SiteVisitStatus {
-  PENDING // Buyer ne request kiya, seller ne confirm nahi kiya
-  CONFIRMED // Seller ne date/time confirm kar diya
-  RESCHEDULED // Date/time change kar diya
-  COMPLETED // Visit ho gaya
-  CANCELLED // Buyer ya seller ne cancel kiya
-  NO_SHOW // Buyer aaya hi nahi
 }
 
 // Buyer ke sawal ka status (buyer → seller direct question)

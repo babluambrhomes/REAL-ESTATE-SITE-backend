@@ -89,17 +89,11 @@ model Member {
   // aur org me bhi ho sakta hai aur assignment us specific
   // org membership se tied hai.
 
-  // Leads is member ko di gayi
-  assignedLeads LeadForm[] @relation("LeadAssignee")
-
-  // Site visits is member ko di gayi
-  assignedSiteVisits SiteVisit[] @relation("SiteVisitAssignee")
+  // Leads / inquiries / site visits is member ko assign ki gayi (ek hi table)
+  assignedLeadInquiries LeadInquiry[] @relation("LeadInquiryAssignee")
 
   // Buyer questions is member ko di gaye
   assignedBuyerQuestions BuyerQuestion[] @relation("BuyerQuestionAssignee")
-
-  // Organization interest inquiries is member ko di gayi
-  assignedOrganizationInquiries OrganizationInquiry[] @relation("OrganizationInquiryAssignee")
 
   // NOTE: `name:` is deliberately NOT set on these. Prisma derives index
   // names for partial @@unique from the columns, and ignores a custom

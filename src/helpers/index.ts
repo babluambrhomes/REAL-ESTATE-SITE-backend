@@ -69,3 +69,12 @@ export {
   generateSlug,
   ensureCategory,
 } from "./sellerIdentity.helper";
+
+export {
+  RECENT_ACTIVITY_LIMIT,
+  VISIT_DURATION_MS,
+  buildActivity,
+  appendComment,
+  pushRecentActivity,
+} from "./leadInquiry.helper";
+export type { ActivityAction, ActivityEntry } from "./leadInquiry.helper";
