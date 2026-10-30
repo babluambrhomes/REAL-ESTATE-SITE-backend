@@ -75,4 +75,49 @@ export const uploadDocument = multer({
   limits: { fileSize: 10 * 1024 * 1024 },
 });
 
+// --- Unified upload (generic /api/v1/uploads) ---
+// Images and PDFs land in a temp folder first. The upload service compresses
+// images, pushes to S3, then removes the temp file — nothing is served from
+// disk anymore.
+const TEMP_UPLOAD_DIR = path.join("uploads", "tmp");
+fs.mkdirSync(TEMP_UPLOAD_DIR, { recursive: true });
+
+const anyStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => {
+    cb(null, TEMP_UPLOAD_DIR);
+  },
+  filename: (_req, file, cb) => {
+    const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
+    cb(null, `${uniqueSuffix}${path.extname(file.originalname).toLowerCase()}`);
+  },
+});
+
+const anyFileFilter = (
+  _req: Express.Request,
+  file: Express.Multer.File,
+  cb: multer.FileFilterCallback
+) => {
+  const allowedTypes = /jpeg|jpg|png|webp|pdf/;
+  const extname = allowedTypes.test(
+    path.extname(file.originalname).toLowerCase()
+  );
+  const mimetype = allowedTypes.test(file.mimetype);
+
+  if (extname && mimetype) {
+    cb(null, true);
+  } else {
+    cb(new ApiError(400, "Only image and PDF files are allowed"));
+  }
+};
+
+/**
+ * Generic uploader for the unified upload module. Per-purpose rules (image vs
+ * PDF, resizing, visibility) are enforced in upload.service.
+ */
+export const uploadAny = multer({
+  storage: anyStorage,
+  fileFilter: anyFileFilter,
+  limits: { fileSize: 10 * 1024 * 1024, files: 10 },
+});
+
 export default upload;

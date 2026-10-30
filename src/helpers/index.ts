@@ -37,6 +37,14 @@ export {
 export { getLocationFromIP } from "./getLocationFromIP";
 
 export {
+  buildKey,
+  uploadToS3,
+  deleteFromS3,
+  getPublicUrl,
+  getPresignedUrl,
+} from "./storage.helper";
+
+export {
   NOT_DELETED,
   ownedPropertyWhere,
   ownedPropertyWhereWith,

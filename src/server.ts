@@ -10,6 +10,7 @@ import path from "path";
 import connectMongo from "./config/connectMongo";
 import prisma from "./config/prisma";
 import { initSocket } from "./config/socket";
+import { assertStorageEnv } from "./config/s3";
 import { errorHandler } from "./middlewares";
 import authRouter from "./modules/auth/auth.route";
 import userRouter from "./modules/user/user.route";
@@ -25,6 +26,7 @@ import buyerQuestionRouter from "./modules/buyerQuestion/buyerQuestion.route";
 import blogPostRouter from "./modules/blogPost/blogPost.route";
 import blogPostPublicRouter from "./modules/blogPost/blogPost.public.route";
 import searchRouter from "./modules/search/search.route";
+import uploadRouter from "./modules/upload/upload.route";
 import "./workers/email.worker";
 
 
@@ -67,6 +69,7 @@ app.use("/api/v1/property-faqs", propertyFaqRouter);
 app.use("/api/v1/buyer-questions", buyerQuestionRouter);
 app.use("/api/v1/blog-posts", blogPostPublicRouter);
 app.use("/api/v1/search", searchRouter);
+app.use("/api/v1/uploads", uploadRouter);
 
 app.get("/", (req, res) => {
   res.json({ message: "Real Estate API is running" });
@@ -76,6 +79,8 @@ app.use(errorHandler);
 
 const startServer = async () => {
   try {
+    assertStorageEnv();
+
     await prisma.$connect();
     console.log("PostgreSQL Connected via Prisma");
 

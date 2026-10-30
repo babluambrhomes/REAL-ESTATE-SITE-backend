@@ -4,6 +4,8 @@ import fs from "fs/promises";
 import sharp from "sharp";
 import { ImageJobRequest, ImageJobResult, ImageOutputSpec } from "./image.types";
 
+const MAX_INPUT_PIXELS = 50_000_000;
+
 const sanitizeName = (name: string): string =>
   name.replace(/[^a-zA-Z0-9._-]/g, "-") || "image";
 
@@ -27,7 +29,9 @@ const processOutput = async (
   const outputFilename = `${nameBase}.${format}`;
   const outputPath = path.join(outputDir, outputFilename);
 
-  let pipeline = sharp(inputPath).rotate();
+  let pipeline = sharp(inputPath, {
+    limitInputPixels: MAX_INPUT_PIXELS,
+  }).rotate();
 
   if (spec.width || spec.height) {
     pipeline = pipeline.resize({

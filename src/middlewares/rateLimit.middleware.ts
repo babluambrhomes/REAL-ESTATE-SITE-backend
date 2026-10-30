@@ -74,6 +74,15 @@ const leadRateLimit = rateLimit({
   keyBy: (req) => `lead:${(req as AuthRequest).user?.id ?? "anonymous"}`,
 });
 
+// Preset: uploads (per-user — S3 cost/abuse rokne ke liye)
+const uploadRateLimit = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  maxRequests: 60,
+  message: "Too many uploads, please try again later",
+  keyBy: (req) =>
+    `upload:${(req as AuthRequest).user?.id ?? req.ip ?? "unknown"}`,
+});
+
 export {
   rateLimit,
   authRateLimit,
@@ -81,4 +90,5 @@ export {
   otpRateLimit,
   buyerQuestionRateLimit,
   leadRateLimit,
+  uploadRateLimit,
 };

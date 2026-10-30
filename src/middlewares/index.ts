@@ -1,8 +1,8 @@
 export { protect, optionalAuth, assertSessionAllowed } from "./auth.middleware";
 export { default as errorHandler } from "./error.middleware";
-export { default as upload, uploadDocument } from "./upload.middleware";
+export { default as upload, uploadDocument, uploadAny } from "./upload.middleware";
 export { default as validate, parseQuery } from "./validate.middleware";
-export { rateLimit, authRateLimit, apiRateLimit, otpRateLimit, buyerQuestionRateLimit, leadRateLimit } from "./rateLimit.middleware";
+export { rateLimit, authRateLimit, apiRateLimit, otpRateLimit, buyerQuestionRateLimit, leadRateLimit, uploadRateLimit } from "./rateLimit.middleware";
 export {
   checkPermission,
   requirePermission,
