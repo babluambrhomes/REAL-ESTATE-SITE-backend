@@ -118,6 +118,8 @@ model Organization {
   // Organization 1 ←→ Many Properties
   properties Property[]
 
+  videoUploads Video[] @relation("OrganizationVideos")
+
   // Organization ko aaye leads / inquiries / site visits
   // Organization 1 ←→ Many LeadInquiries
   leadInquiries LeadInquiry[]

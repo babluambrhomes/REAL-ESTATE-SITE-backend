@@ -1,0 +1,42 @@
+model Video {
+  id String @id @default(uuid()) @db.Uuid
+
+  userId String? @map("user_id") @db.Uuid
+  user   User?   @relation("VideoCreator", fields: [userId], references: [id], onDelete: SetNull)
+
+  sellerId String?        @map("seller_id") @db.Uuid
+  seller   SellerProfile? @relation("SellerVideos", fields: [sellerId], references: [id], onDelete: SetNull)
+
+  organizationId String?       @map("organization_id") @db.Uuid
+  organization   Organization? @relation("OrganizationVideos", fields: [organizationId], references: [id], onDelete: SetNull)
+
+  propertyId String?   @map("property_id") @db.Uuid
+  property   Property? @relation("PropertyVideos", fields: [propertyId], references: [id], onDelete: SetNull)
+
+  entityType   VideoEntityType @default(GENERIC) @map("entity_type")
+  name         String
+  originalName String         @map("original_name")
+  sizeBytes    Int?           @map("size_bytes")
+  lengthSeconds Float?        @map("length_seconds")
+
+  uploadId   String  @unique @map("upload_id")
+  assetId    String? @unique @map("asset_id")
+  playbackId String? @unique @map("playback_id")
+
+  status       VideoStatus @default(WAITING) @map("status")
+  duration     Float?
+  thumbnailUrl String?     @map("thumbnail_url")
+  error        String?     @db.Text
+  readyAt      DateTime?   @map("ready_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([userId, createdAt])
+  @@index([sellerId])
+  @@index([organizationId])
+  @@index([propertyId])
+  @@index([status])
+  @@index([entityType])
+  @@map("videos")
+}

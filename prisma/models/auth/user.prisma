@@ -34,6 +34,8 @@ model User {
   // verifiedBy ke saath dono User se hain, dono ko alag relation chahiye.
   createdProperties Property[] @relation("PropertyCreator")
 
+  createdVideos Video[] @relation("VideoCreator")
+
   // Is user ne kaunsi organizations/sellers/documents verify kiye (platform staff)
   verifiedOrganizations      Organization[]               @relation("VerifiedOrganization")
   verifiedSellerProfiles     SellerProfile[]              @relation("VerifiedSeller")

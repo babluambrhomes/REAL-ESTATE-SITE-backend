@@ -1,8 +1,10 @@
 import fs from "fs/promises";
 import { Request, Response } from "express";
 import { ApiError, ApiResponse, asyncHandler } from "../../utils";
-import { uploadImageFiles, uploadPdfFiles } from "./upload.service";
-import { uploadBodySchema } from "./upload.validation";
+import { AuthRequest } from "../../types";
+import { uploadImageFiles, uploadPdfFiles, createVideoPresign } from "./upload.service";
+
+import { uploadBodySchema, videoPresignSchema } from "./upload.validation";
 
 const cleanup = (files: Express.Multer.File[]) =>
   Promise.all(files.map((file) => fs.unlink(file.path).catch(() => undefined)));
@@ -51,3 +53,22 @@ export const uploadPdf = asyncHandler(async (req: Request, res: Response) => {
     throw error;
   }
 });
+
+
+export const presignVideo = asyncHandler(
+  async (req: AuthRequest, res: Response) => {
+    const parsed = videoPresignSchema.safeParse(req.body);
+    if (!parsed.success) {
+      throw new ApiError(
+        400,
+        parsed.error.issues[0]?.message ?? "Invalid video upload options"
+      );
+    }
+
+    const result = await createVideoPresign(parsed.data, req.user!.id);
+
+    res
+      .status(201)
+      .json(new ApiResponse(201, result, "Video upload URL created"));
+  }
+);

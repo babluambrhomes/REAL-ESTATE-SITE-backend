@@ -216,6 +216,8 @@ model SellerProfile {
   // SellerProfile 1 ←→ Many Blog Posts
   blogPosts SellerBlogPost[]
 
+  videoUploads Video[] @relation("SellerVideos")
+
   @@index([organizationId])
   @@index([categoryId])
   @@index([verificationStatus])

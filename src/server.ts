@@ -28,6 +28,7 @@ import blogPostPublicRouter from "./modules/blogPost/blogPost.public.route";
 import searchRouter from "./modules/search/search.route";
 import uploadRouter from "./modules/upload/upload.route";
 import "./workers/email.worker";
+import handleWebhookRouter from "./modules/webhook/webhook.route";
 
 
 
@@ -49,6 +50,14 @@ app.use(
     credentials: true,
   })
 );
+
+app.use(
+  "/api/v1/webhooks",
+  express.raw({ type: "application/json" }),
+  handleWebhookRouter
+);
+
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());

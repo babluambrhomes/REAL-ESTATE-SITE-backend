@@ -172,6 +172,8 @@ model Property {
   // Property 1 ←→ Many FAQs
   faqs PropertyFaq[]
 
+  videoUploads Video[] @relation("PropertyVideos")
+
   // Kis user ne property like/wishlist ki
   // Property 1 ←→ Many Likes
   likes PropertyLike[]

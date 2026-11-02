@@ -314,3 +314,24 @@ enum BuyerQuestionStatus {
   ANSWERED // Seller ne jawab de diya
   CLOSED // Baat ho gayi / band kar diya
 }
+
+
+enum VideoStatus {
+  WAITING
+  UPLOADING
+  ASSET_CREATED
+  PROCESSING
+  READY
+  FAILED
+  CANCELLED
+  TIMED_OUT
+}
+
+enum VideoEntityType {
+  GENERIC
+  PROPERTY
+  PROPERTY_TOUR_360
+  PROPERTY_FLOOR_PLAN
+  SELLER
+  BLOG_POST
+}
