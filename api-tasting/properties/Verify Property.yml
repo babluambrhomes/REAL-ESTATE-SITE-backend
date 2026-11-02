@@ -1,0 +1,24 @@
+info:
+  name: Verify Property
+  type: http
+  seq: 17
+
+http:
+  method: PATCH
+  url: "{{base_url}}api/v1/properties/{{propertyId}}/verify"
+  body:
+    type: json
+    data: |-
+      {
+          "verificationStatus":  "VERIFIED"
+      }
+  auth:
+    type: bearer
+    token: "{{adminAccessToken}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

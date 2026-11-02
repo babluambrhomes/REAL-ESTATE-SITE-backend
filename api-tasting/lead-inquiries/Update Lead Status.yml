@@ -1,0 +1,26 @@
+info:
+  name: Update Lead Status
+  type: http
+  seq: 11
+
+http:
+  method: PATCH
+  url: "{{base_url}}api/v1/lead-inquiries/manage/{{leadInquiryId}}/status"
+  headers:
+    - name: x-organization-id
+      value: "{{organizationId}}"
+  body:
+    type: json
+    data: |-
+      {
+          "status":  "CONTACTED",
+          "comment":  "Called the buyer."
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

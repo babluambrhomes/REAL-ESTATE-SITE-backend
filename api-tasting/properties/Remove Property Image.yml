@@ -1,0 +1,25 @@
+info:
+  name: Remove Property Image
+  type: http
+  seq: 10
+
+http:
+  method: DELETE
+  url: "{{base_url}}api/v1/properties/{{propertyId}}/images"
+  headers:
+    - name: x-organization-id
+      value: "{{organizationId}}"
+  body:
+    type: json
+    data: |-
+      {
+          "url":  "https://example.com/property-2.jpg"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

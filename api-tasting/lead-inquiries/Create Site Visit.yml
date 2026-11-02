@@ -1,0 +1,30 @@
+info:
+  name: Create Site Visit
+  type: http
+  seq: 3
+
+http:
+  method: POST
+  url: "{{base_url}}api/v1/lead-inquiries/site-visit"
+  body:
+    type: json
+    data: |-
+      {
+          "propertyId":  "{{propertyId}}",
+          "source":  "CONTACT",
+          "name":  "Amit Patel",
+          "email":  "amit.patel@example.com",
+          "phone":  "9812345678",
+          "userAddress":  "A-101, Palm Grove, Andheri",
+          "visitDate":  "2026-12-15",
+          "startTime":  "2026-12-15T10:00:00.000Z",
+          "endTime":  "2026-12-15T11:00:00.000Z"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

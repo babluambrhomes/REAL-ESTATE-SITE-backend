@@ -1,0 +1,28 @@
+info:
+  name: Upload PDF
+  type: http
+  seq: 2
+
+http:
+  method: POST
+  url: "{{base_url}}api/v1/uploads/pdf"
+  body:
+    type: multipart-form
+    data:
+      - name: files
+        type: file
+        value: []
+      - name: folder
+        type: text
+        value: "brochures"
+      - name: visibility
+        type: text
+        value: "PUBLIC"
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

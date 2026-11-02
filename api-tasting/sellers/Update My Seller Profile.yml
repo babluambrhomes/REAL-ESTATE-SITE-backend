@@ -1,0 +1,48 @@
+info:
+  name: Update My Seller Profile
+  type: http
+  seq: 4
+
+http:
+  method: PUT
+  url: "{{base_url}}api/v1/sellers/me"
+  headers:
+    - name: x-organization-id
+      value: "{{organizationId}}"
+  body:
+    type: json
+    data: |-
+      {
+          "name":  "Rahul Sharma",
+          "headline":  "Trusted property consultant in Mumbai",
+          "about":  "10+ years helping families buy homes.",
+          "experienceYears":  10,
+          "specializations":  [
+                                  "Residential",
+                                  "Commercial"
+                              ],
+          "languages":  [
+                            "English",
+                            "Hindi",
+                            "Marathi"
+                        ],
+          "addressLine":  "B-402, Green Heights",
+          "city":  "Mumbai",
+          "state":  "Maharashtra",
+          "country":  "India",
+          "pincode":  "400001",
+          "contactPhone":  "9876543210",
+          "contactEmail":  "rahul.sharma@example.com",
+          "showContactToBuyers":  true,
+          "isAvailable":  true,
+          "happyClientsCount":  150,
+          "responseTimeMinutes":  30
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

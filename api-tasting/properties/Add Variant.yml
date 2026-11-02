@@ -1,0 +1,38 @@
+info:
+  name: Add Variant
+  type: http
+  seq: 11
+
+http:
+  method: POST
+  url: "{{base_url}}api/v1/properties/{{propertyId}}/variants"
+  headers:
+    - name: x-organization-id
+      value: "{{organizationId}}"
+  body:
+    type: json
+    data: |-
+      {
+          "variantName":  "2 BHK Garden View",
+          "bedrooms":  2,
+          "bathrooms":  2,
+          "balconies":  1,
+          "price":  18000000,
+          "priceUnit":  "TOTAL",
+          "totalArea":  1050,
+          "totalAreaUnit":  "sqft",
+          "floorNumber":  5,
+          "totalFloors":  20,
+          "availabilityStatus":  "UNDER_CONSTRUCTION",
+          "isAvailable":  true,
+          "inventoryCount":  10,
+          "furnishingStatus":  "UNFURNISHED"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

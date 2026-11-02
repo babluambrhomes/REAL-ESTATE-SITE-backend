@@ -1,0 +1,25 @@
+info:
+  name: Assign Lead
+  type: http
+  seq: 13
+
+http:
+  method: PATCH
+  url: "{{base_url}}api/v1/lead-inquiries/manage/{{leadInquiryId}}/assign"
+  headers:
+    - name: x-organization-id
+      value: "{{organizationId}}"
+  body:
+    type: json
+    data: |-
+      {
+          "memberId":  "{{memberId}}"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

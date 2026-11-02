@@ -1,0 +1,31 @@
+info:
+  name: Upload KYC Document
+  type: http
+  seq: 4
+
+http:
+  method: POST
+  url: "{{base_url}}api/v1/sellers/kyc/documents"
+  headers:
+    - name: x-organization-id
+      value: "{{organizationId}}"
+  body:
+    type: multipart-form
+    data:
+      - name: document
+        type: file
+        value: []
+      - name: docType
+        type: text
+        value: "PAN_CARD"
+      - name: title
+        type: text
+        value: "PAN Card"
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

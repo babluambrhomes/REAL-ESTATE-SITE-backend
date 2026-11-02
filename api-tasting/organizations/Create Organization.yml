@@ -1,0 +1,39 @@
+info:
+  name: Create Organization
+  type: http
+  seq: 2
+
+http:
+  method: POST
+  url: "{{base_url}}api/v1/organizations"
+  body:
+    type: json
+    data: |-
+      {
+          "name":  "Sharma Realty Pvt Ltd",
+          "reraNumber":  "RERA-MH-123456",
+          "categoryId":  "{{categoryId}}",
+          "description":  "Leading real estate developer in Mumbai",
+          "website":  "https://sharmarealty.example.com",
+          "registrationNumber":  "REG-998877",
+          "gstNumber":  "27ABCDE1234F1Z5",
+          "panNumber":  "ABCDE1234F",
+          "yearEstablished":  2015,
+          "employeeCount":  25,
+          "headline":  "Trusted builders in Mumbai",
+          "about":  "We build sustainable homes.",
+          "contactPhone":  "9876543210",
+          "contactEmail":  "info@sharmarealty.example.com",
+          "city":  "Mumbai",
+          "state":  "Maharashtra",
+          "country":  "India",
+          "pincode":  "400001"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

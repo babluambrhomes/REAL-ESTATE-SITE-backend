@@ -1,0 +1,29 @@
+info:
+  name: Create Property FAQ
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: "{{base_url}}api/v1/property-faqs"
+  headers:
+    - name: x-organization-id
+      value: "{{organizationId}}"
+  body:
+    type: json
+    data: |-
+      {
+          "propertyId":  "{{propertyId}}",
+          "question":  "Is the property RERA approved?",
+          "answer":  "Yes, RERA registration number is RERA-MH-123456.",
+          "displayOrder":  1,
+          "isActive":  true
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

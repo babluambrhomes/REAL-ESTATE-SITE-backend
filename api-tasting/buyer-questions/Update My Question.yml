@@ -1,0 +1,22 @@
+info:
+  name: Update My Question
+  type: http
+  seq: 4
+
+http:
+  method: PATCH
+  url: "{{base_url}}api/v1/buyer-questions/me/{{questionId}}"
+  body:
+    type: json
+    data: |-
+      {
+          "question":  "Is the price negotiable for the 3 BHK apartment with sea view?"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

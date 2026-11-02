@@ -1,0 +1,25 @@
+info:
+  name: Answer Question
+  type: http
+  seq: 9
+
+http:
+  method: PATCH
+  url: "{{base_url}}api/v1/buyer-questions/seller/{{questionId}}/answer"
+  headers:
+    - name: x-organization-id
+      value: "{{organizationId}}"
+  body:
+    type: json
+    data: |-
+      {
+          "answer":  "Yes, a 5 percent negotiation is possible for serious buyers."
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

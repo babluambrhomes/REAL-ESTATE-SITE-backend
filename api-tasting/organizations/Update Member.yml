@@ -1,0 +1,23 @@
+info:
+  name: Update Member
+  type: http
+  seq: 9
+
+http:
+  method: PATCH
+  url: "{{base_url}}api/v1/organizations/{{organizationId}}/members/{{memberId}}"
+  body:
+    type: json
+    data: |-
+      {
+          "roleId":  "{{roleId}}",
+          "status":  "ACTIVE"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

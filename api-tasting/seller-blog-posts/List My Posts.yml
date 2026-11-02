@@ -1,0 +1,19 @@
+info:
+  name: List My Posts
+  type: http
+  seq: 1
+
+http:
+  method: GET
+  url: "{{base_url}}api/v1/sellers/me/blog-posts?page=1&limit=10"
+  headers:
+    - name: x-organization-id
+      value: "{{organizationId}}"
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

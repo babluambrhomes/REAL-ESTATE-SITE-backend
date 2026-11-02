@@ -1,0 +1,37 @@
+info:
+  name: Update Property
+  type: http
+  seq: 5
+
+http:
+  method: PATCH
+  url: "{{base_url}}api/v1/properties/{{propertyId}}"
+  headers:
+    - name: x-organization-id
+      value: "{{organizationId}}"
+  body:
+    type: json
+    data: |-
+      {
+          "title":  "Luxury 3 BHK Apartment in Andheri West",
+          "description":  "Spacious apartment with sea view.",
+          "amenities":  [
+                            "Swimming Pool",
+                            "Gym",
+                            "Parking",
+                            "Security"
+                        ],
+          "nearbyPlaces":  [
+                               "Metro Station",
+                               "School",
+                               "Mall"
+                           ]
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

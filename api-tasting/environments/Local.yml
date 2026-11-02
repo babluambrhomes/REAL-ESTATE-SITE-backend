@@ -1,0 +1,116 @@
+name: Local
+variables:
+  - name: base_url
+    value: http://localhost:5000/
+    enabled: true
+    secret: false
+
+  - name: accessToken
+    value: ''
+    enabled: true
+    secret: false
+
+  - name: adminAccessToken
+    value: ''
+    enabled: true
+    secret: false
+
+  - name: resetToken
+    value: ''
+    enabled: true
+    secret: false
+
+  - name: refreshToken
+    value: ''
+    enabled: true
+    secret: false
+
+  - name: invitationToken
+    value: ''
+    enabled: true
+    secret: false
+
+  - name: roleId
+    value: ''
+    enabled: true
+    secret: false
+
+  - name: userId
+    value: ''
+    enabled: true
+    secret: false
+
+  - name: sellerId
+    value: ''
+    enabled: true
+    secret: false
+
+  - name: sellerSlug
+    value: rahul-sharma-properties
+    enabled: true
+    secret: false
+
+  - name: organizationId
+    value: ''
+    enabled: true
+    secret: false
+
+  - name: categoryId
+    value: ''
+    enabled: true
+    secret: false
+
+  - name: propertyId
+    value: ''
+    enabled: true
+    secret: false
+
+  - name: propertySlug
+    value: luxury-3-bhk-apartment-andheri-west
+    enabled: true
+    secret: false
+
+  - name: variantId
+    value: ''
+    enabled: true
+    secret: false
+
+  - name: faqId
+    value: ''
+    enabled: true
+    secret: false
+
+  - name: questionId
+    value: ''
+    enabled: true
+    secret: false
+
+  - name: blogPostId
+    value: ''
+    enabled: true
+    secret: false
+
+  - name: blogSlug
+    value: 5-tips-to-buy-your-first-home-in-mumbai
+    enabled: true
+    secret: false
+
+  - name: leadInquiryId
+    value: ''
+    enabled: true
+    secret: false
+
+  - name: docId
+    value: ''
+    enabled: true
+    secret: false
+
+  - name: memberId
+    value: ''
+    enabled: true
+    secret: false
+
+  - name: invitationId
+    value: ''
+    enabled: true
+    secret: false

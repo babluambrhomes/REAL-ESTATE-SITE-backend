@@ -1,0 +1,27 @@
+info:
+  name: Login with google
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: "{{base_url}}api/v1/auth/login"
+  body:
+    type: json
+    data: |-
+      {
+        "FbTokenId":""
+      }
+  auth: inherit
+
+runtime:
+  variables:
+    - name: base_url
+      value: http://localhost:5000/
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

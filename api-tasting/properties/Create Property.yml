@@ -1,0 +1,91 @@
+info:
+  name: Create Property
+  type: http
+  seq: 4
+
+http:
+  method: POST
+  url: "{{base_url}}api/v1/properties"
+  headers:
+    - name: x-organization-id
+      value: "{{organizationId}}"
+  body:
+    type: json
+    data: |-
+      {
+          "title":  "Luxury 3 BHK Apartment in Andheri West",
+          "description":  "Spacious 3 BHK apartment with sea view and modern amenities.",
+          "transactionType":  "SALE",
+          "propertyType":  "APARTMENT",
+          "propertyStatus":  "AVAILABLE",
+          "addressLine":  "Tower A, Skyline Residency, Andheri West",
+          "city":  "Mumbai",
+          "state":  "Maharashtra",
+          "country":  "India",
+          "pincode":  "400053",
+          "latitude":  19.1364,
+          "longitude":  72.8296,
+          "ownershipType":  "FREEHOLD",
+          "listedBy":  "AGENT",
+          "ageOfProperty":  2,
+          "amenities":  [
+                            "Swimming Pool",
+                            "Gym",
+                            "Parking",
+                            "Security",
+                            "Power Backup"
+                        ],
+          "nearbyPlaces":  [
+                               "Metro Station",
+                               "International School",
+                               "Shopping Mall"
+                           ],
+          "priceJustification":  "Sea-facing with premium fittings.",
+          "otherAdvantages":  [
+                                  "Corner unit",
+                                  "Vastu compliant"
+                              ],
+          "locationAdvantage":  "5 minutes from metro and highway.",
+          "reraNumber":  "RERA-MH-123456",
+          "registrationNumber":  "REG-998877",
+          "contactName":  "Rahul Sharma",
+          "contactPhone":  "9876543210",
+          "contactEmail":  "rahul.sharma@example.com",
+          "metaTitle":  "3 BHK Apartment in Andheri West",
+          "metaDescription":  "Buy a luxury 3 BHK in Andheri West, Mumbai.",
+          "metaKeywords":  "3 bhk, apartment, andheri, mumbai",
+          "variants":  [
+                           {
+                               "variantName":  "3 BHK Sea View",
+                               "bedrooms":  3,
+                               "bathrooms":  3,
+                               "balconies":  2,
+                               "price":  25000000,
+                               "priceUnit":  "TOTAL",
+                               "totalArea":  1450,
+                               "totalAreaUnit":  "sqft",
+                               "carpetArea":  1100,
+                               "carpetAreaUnit":  "sqft",
+                               "floorNumber":  12,
+                               "totalFloors":  20,
+                               "availabilityStatus":  "READY_TO_MOVE",
+                               "isAvailable":  true,
+                               "inventoryCount":  5,
+                               "furnishingStatus":  "SEMI_FURNISHED",
+                               "images":  [
+                                              {
+                                                  "url":  "https://example.com/variant-1.jpg",
+                                                  "isFeatured":  true
+                                              }
+                                          ]
+                           }
+                       ]
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

@@ -1,0 +1,24 @@
+info:
+  name: Update Organization
+  type: http
+  seq: 6
+
+http:
+  method: PATCH
+  url: "{{base_url}}api/v1/organizations/{{organizationId}}"
+  body:
+    type: json
+    data: |-
+      {
+          "name":  "Sharma Realty Pvt Ltd",
+          "description":  "Updated company description",
+          "contactPhone":  "9876543210"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

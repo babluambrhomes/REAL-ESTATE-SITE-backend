@@ -1,0 +1,26 @@
+info:
+  name: Update FAQ
+  type: http
+  seq: 5
+
+http:
+  method: PATCH
+  url: "{{base_url}}api/v1/property-faqs/{{faqId}}"
+  headers:
+    - name: x-organization-id
+      value: "{{organizationId}}"
+  body:
+    type: json
+    data: |-
+      {
+          "answer":  "Yes, RERA approved.",
+          "isActive":  true
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

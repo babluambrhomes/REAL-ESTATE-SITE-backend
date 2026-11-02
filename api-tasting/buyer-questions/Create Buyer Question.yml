@@ -1,0 +1,24 @@
+info:
+  name: Create Buyer Question
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: "{{base_url}}api/v1/buyer-questions"
+  body:
+    type: json
+    data: |-
+      {
+          "sellerId":  "{{sellerId}}",
+          "propertyId":  "{{propertyId}}",
+          "question":  "Is the price negotiable for the 3 BHK apartment?"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

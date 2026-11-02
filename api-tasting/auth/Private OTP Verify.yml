@@ -1,0 +1,23 @@
+info:
+  name: Private OTP Verify
+  type: http
+  seq: 8
+
+http:
+  method: POST
+  url: "{{base_url}}api/v1/auth/private-otp-verify"
+  body:
+    type: json
+    data: |-
+      {
+          "code":  "123456",
+          "purpose":  "EMAIL_VERIFICATION"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

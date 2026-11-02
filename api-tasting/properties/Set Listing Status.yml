@@ -1,0 +1,24 @@
+info:
+  name: Set Listing Status
+  type: http
+  seq: 18
+
+http:
+  method: PATCH
+  url: "{{base_url}}api/v1/properties/{{propertyId}}/listing-status"
+  body:
+    type: json
+    data: |-
+      {
+          "listingStatus":  "PUBLISHED"
+      }
+  auth:
+    type: bearer
+    token: "{{adminAccessToken}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

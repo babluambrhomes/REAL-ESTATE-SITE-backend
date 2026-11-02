@@ -1,0 +1,22 @@
+info:
+  name: Cancel My Lead Inquiry
+  type: http
+  seq: 7
+
+http:
+  method: PATCH
+  url: "{{base_url}}api/v1/lead-inquiries/me/{{leadInquiryId}}/cancel"
+  body:
+    type: json
+    data: |-
+      {
+          "reason":  "Plans changed."
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

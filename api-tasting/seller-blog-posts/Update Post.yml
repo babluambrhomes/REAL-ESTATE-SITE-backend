@@ -1,0 +1,31 @@
+info:
+  name: Update Post
+  type: http
+  seq: 4
+
+http:
+  method: PATCH
+  url: "{{base_url}}api/v1/sellers/me/blog-posts/{{blogPostId}}"
+  headers:
+    - name: x-organization-id
+      value: "{{organizationId}}"
+  body:
+    type: json
+    data: |-
+      {
+          "title":  "5 Tips to Buy Your First Home in Mumbai",
+          "excerpt":  "Updated practical guide for first-time buyers.",
+          "tags":  [
+                       "home-buying",
+                       "mumbai",
+                       "guide"
+                   ]
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

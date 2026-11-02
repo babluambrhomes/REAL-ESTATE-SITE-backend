@@ -1,0 +1,28 @@
+info:
+  name: Create FAQ
+  type: http
+  seq: 2
+
+http:
+  method: POST
+  url: "{{base_url}}api/v1/sellers/me/faqs"
+  headers:
+    - name: x-organization-id
+      value: "{{organizationId}}"
+  body:
+    type: json
+    data: |-
+      {
+          "question":  "Do you charge brokerage?",
+          "answer":  "Yes, 1 percent of the property value.",
+          "displayOrder":  1,
+          "isActive":  true
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

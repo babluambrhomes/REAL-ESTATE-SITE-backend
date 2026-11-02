@@ -1,0 +1,15 @@
+opencollection: 1.0.0
+
+info:
+  name: api-tasting
+bundled: false
+request:
+  auth:
+    type: bearer
+    token: "{{accessToken}}"
+extensions:
+  bruno:
+    defaultEnvironment: Local
+    ignore:
+      - node_modules
+      - .git

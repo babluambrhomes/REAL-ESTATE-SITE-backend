@@ -1,0 +1,25 @@
+info:
+  name: Add Lead Comment
+  type: http
+  seq: 12
+
+http:
+  method: POST
+  url: "{{base_url}}api/v1/lead-inquiries/manage/{{leadInquiryId}}/comments"
+  headers:
+    - name: x-organization-id
+      value: "{{organizationId}}"
+  body:
+    type: json
+    data: |-
+      {
+          "comment":  "Buyer requested a weekend site visit."
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

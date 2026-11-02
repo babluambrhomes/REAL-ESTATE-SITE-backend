@@ -1,0 +1,25 @@
+info:
+  name: Update Question Status
+  type: http
+  seq: 10
+
+http:
+  method: PATCH
+  url: "{{base_url}}api/v1/buyer-questions/seller/{{questionId}}/status"
+  headers:
+    - name: x-organization-id
+      value: "{{organizationId}}"
+  body:
+    type: json
+    data: |-
+      {
+          "status":  "ANSWERED"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

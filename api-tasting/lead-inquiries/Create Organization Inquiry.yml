@@ -1,0 +1,29 @@
+info:
+  name: Create Organization Inquiry
+  type: http
+  seq: 2
+
+http:
+  method: POST
+  url: "{{base_url}}api/v1/lead-inquiries/organization-inquiry"
+  body:
+    type: json
+    data: |-
+      {
+          "organizationId":  "{{organizationId}}",
+          "name":  "Neha Gupta",
+          "email":  "neha.gupta@example.com",
+          "phone":  "9822334455",
+          "message":  "Looking for a 3 BHK project in Mumbai.",
+          "budgetRange":  "2-3 Crore",
+          "preferredProject":  "Skyline Residency",
+          "termsAccepted":  true
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

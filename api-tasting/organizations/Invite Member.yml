@@ -1,0 +1,25 @@
+info:
+  name: Invite Member
+  type: http
+  seq: 12
+
+http:
+  method: POST
+  url: "{{base_url}}api/v1/organizations/{{organizationId}}/invitations"
+  body:
+    type: json
+    data: |-
+      {
+          "email":  "priya.verma@example.com",
+          "phone":  "9876501234",
+          "roleName":  "Manager",
+          "expiresInHours":  72
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

@@ -1,0 +1,19 @@
+info:
+  name: Delete Seller Question
+  type: http
+  seq: 11
+
+http:
+  method: DELETE
+  url: "{{base_url}}api/v1/buyer-questions/seller/{{questionId}}"
+  headers:
+    - name: x-organization-id
+      value: "{{organizationId}}"
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

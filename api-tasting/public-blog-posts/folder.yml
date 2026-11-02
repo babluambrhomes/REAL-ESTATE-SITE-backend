@@ -1,0 +1,7 @@
+info:
+  name: public-blog-posts
+  type: folder
+  seq: 13
+
+request:
+  auth: inherit

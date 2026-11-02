@@ -1,0 +1,16 @@
+info:
+  name: List Members
+  type: http
+  seq: 8
+
+http:
+  method: GET
+  url: "{{base_url}}api/v1/organizations/{{organizationId}}/members?page=1&limit=10"
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

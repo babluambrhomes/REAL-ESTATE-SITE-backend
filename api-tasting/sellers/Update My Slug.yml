@@ -1,0 +1,25 @@
+info:
+  name: Update My Slug
+  type: http
+  seq: 5
+
+http:
+  method: PATCH
+  url: "{{base_url}}api/v1/sellers/me/slug"
+  headers:
+    - name: x-organization-id
+      value: "{{organizationId}}"
+  body:
+    type: json
+    data: |-
+      {
+          "slug":  "rahul-sharma-properties"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

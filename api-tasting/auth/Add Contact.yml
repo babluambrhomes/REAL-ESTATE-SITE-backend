@@ -1,0 +1,22 @@
+info:
+  name: Add Contact
+  type: http
+  seq: 12
+
+http:
+  method: PATCH
+  url: "{{base_url}}api/v1/auth/me/contact"
+  body:
+    type: json
+    data: |-
+      {
+          "phone":  "9876543210" //   "email":  "rahul.sharma@example.com", 
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

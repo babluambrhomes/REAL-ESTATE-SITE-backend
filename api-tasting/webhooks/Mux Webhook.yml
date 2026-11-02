@@ -1,0 +1,34 @@
+info:
+  name: Mux Webhook
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: "{{base_url}}api/v1/webhooks/mux"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+          "type":  "video.asset.ready",
+          "data":  {
+                       "id":  "asset_123",
+                       "playback_ids":  [
+                                            {
+                                                "id":  "playback_123",
+                                                "policy":  "public"
+                                            }
+                                        ]
+                   }
+      }
+  auth: none
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

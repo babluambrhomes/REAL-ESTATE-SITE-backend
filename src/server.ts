@@ -80,8 +80,8 @@ app.use("/api/v1/blog-posts", blogPostPublicRouter);
 app.use("/api/v1/search", searchRouter);
 app.use("/api/v1/uploads", uploadRouter);
 
-app.get("/", (req, res) => {
-  res.json({ message: "Real Estate API is running" });
+app.get("/health", (req, res) => {
+  res.json({ message: "Real Estate API is running fine" });
 });
 
 app.use(errorHandler);

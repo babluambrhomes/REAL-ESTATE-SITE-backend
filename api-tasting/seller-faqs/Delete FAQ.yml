@@ -1,0 +1,19 @@
+info:
+  name: Delete FAQ
+  type: http
+  seq: 5
+
+http:
+  method: DELETE
+  url: "{{base_url}}api/v1/sellers/me/faqs/{{faqId}}"
+  headers:
+    - name: x-organization-id
+      value: "{{organizationId}}"
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

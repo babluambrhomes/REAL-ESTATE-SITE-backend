@@ -1,0 +1,7 @@
+info:
+  name: buyer-questions
+  type: folder
+  seq: 11
+
+request:
+  auth: inherit

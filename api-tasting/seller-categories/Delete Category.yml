@@ -1,0 +1,18 @@
+info:
+  name: Delete Category
+  type: http
+  seq: 6
+
+http:
+  method: DELETE
+  url: "{{base_url}}api/v1/seller-categories/{{categoryId}}"
+  auth:
+    type: bearer
+    token: "{{adminAccessToken}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

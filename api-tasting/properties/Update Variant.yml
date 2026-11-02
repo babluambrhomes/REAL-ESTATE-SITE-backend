@@ -1,0 +1,28 @@
+info:
+  name: Update Variant
+  type: http
+  seq: 12
+
+http:
+  method: PATCH
+  url: "{{base_url}}api/v1/properties/{{propertyId}}/variants/{{variantId}}"
+  headers:
+    - name: x-organization-id
+      value: "{{organizationId}}"
+  body:
+    type: json
+    data: |-
+      {
+          "variantName":  "2 BHK Garden View",
+          "price":  17500000,
+          "inventoryCount":  8,
+          "furnishingStatus":  "SEMI_FURNISHED"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

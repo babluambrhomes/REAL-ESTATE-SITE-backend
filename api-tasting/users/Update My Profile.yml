@@ -1,0 +1,32 @@
+info:
+  name: Update My Profile
+  type: http
+  seq: 2
+
+http:
+  method: PUT
+  url: "{{base_url}}api/v1/users/profile"
+  body:
+    type: json
+    data: |-
+      {
+          "firstName":  "Rahul",
+          "lastName":  "Sharma",
+          "gender":  "MALE",
+          "dateOfBirth":  "1990-05-15",
+          "addressLine":  "B-402, Green Heights",
+          "city":  "Mumbai",
+          "state":  "Maharashtra",
+          "country":  "India",
+          "pincode":  "400001",
+          "latitude":  19.076,
+          "longitude":  72.8777
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

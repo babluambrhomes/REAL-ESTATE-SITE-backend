@@ -1,0 +1,25 @@
+info:
+  name: Reschedule My Lead Inquiry
+  type: http
+  seq: 6
+
+http:
+  method: PATCH
+  url: "{{base_url}}api/v1/lead-inquiries/me/{{leadInquiryId}}/reschedule"
+  body:
+    type: json
+    data: |-
+      {
+          "visitDate":  "2026-12-20",
+          "startTime":  "2026-12-20T10:00:00.000Z",
+          "endTime":  "2026-12-20T11:00:00.000Z",
+          "comment":  "Please reschedule to next week."
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

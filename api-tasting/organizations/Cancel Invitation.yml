@@ -1,0 +1,16 @@
+info:
+  name: Cancel Invitation
+  type: http
+  seq: 13
+
+http:
+  method: DELETE
+  url: "{{base_url}}api/v1/organizations/{{organizationId}}/invitations/{{invitationId}}"
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

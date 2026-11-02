@@ -1,0 +1,27 @@
+info:
+  name: Create General Lead
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: "{{base_url}}api/v1/lead-inquiries/general"
+  body:
+    type: json
+    data: |-
+      {
+          "propertyId":  "{{propertyId}}",
+          "source":  "ENQUIRY_FORM",
+          "name":  "Amit Patel",
+          "email":  "amit.patel@example.com",
+          "phone":  "9812345678",
+          "message":  "I am interested in this property. Please call me."
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

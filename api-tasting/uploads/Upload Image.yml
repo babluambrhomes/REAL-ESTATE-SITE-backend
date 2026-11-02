@@ -1,0 +1,28 @@
+info:
+  name: Upload Image
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: "{{base_url}}api/v1/uploads/image"
+  body:
+    type: multipart-form
+    data:
+      - name: images
+        type: file
+        value: []
+      - name: folder
+        type: text
+        value: "properties"
+      - name: visibility
+        type: text
+        value: "PUBLIC"
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

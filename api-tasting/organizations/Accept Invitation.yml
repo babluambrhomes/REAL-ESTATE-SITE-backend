@@ -1,0 +1,22 @@
+info:
+  name: Accept Invitation
+  type: http
+  seq: 4
+
+http:
+  method: POST
+  url: "{{base_url}}api/v1/organizations/invitations/accept"
+  body:
+    type: json
+    data: |-
+      {
+          "token":  "{{invitationToken}}"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

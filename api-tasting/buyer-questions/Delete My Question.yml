@@ -1,0 +1,16 @@
+info:
+  name: Delete My Question
+  type: http
+  seq: 5
+
+http:
+  method: DELETE
+  url: "{{base_url}}api/v1/buyer-questions/me/{{questionId}}"
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

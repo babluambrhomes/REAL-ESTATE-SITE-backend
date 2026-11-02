@@ -1,0 +1,16 @@
+info:
+  name: Search Properties
+  type: http
+  seq: 1
+
+http:
+  method: GET
+  url: "{{base_url}}api/v1/search/properties?q=apartment&city=Mumbai&transactionType=SALE&propertyType=APARTMENT&bedrooms=3&minPrice=10000000&maxPrice=30000000&sort=price_asc&page=1&limit=10"
+  auth: none
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

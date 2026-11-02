@@ -1,0 +1,38 @@
+info:
+  name: Create Post
+  type: http
+  seq: 3
+
+http:
+  method: POST
+  url: "{{base_url}}api/v1/sellers/me/blog-posts"
+  headers:
+    - name: x-organization-id
+      value: "{{organizationId}}"
+  body:
+    type: json
+    data: |-
+      {
+          "title":  "5 Tips to Buy Your First Home in Mumbai",
+          "content":  "Buying your first home can be overwhelming. Here are five practical tips to make the process smooth.",
+          "excerpt":  "A practical guide for first-time home buyers in Mumbai.",
+          "images":  [
+                         "https://example.com/blog-1.jpg"
+                     ],
+          "tags":  [
+                       "home-buying",
+                       "mumbai",
+                       "tips"
+                   ],
+          "metaTitle":  "First Home Buying Tips",
+          "metaDescription":  "Practical tips to buy your first home in Mumbai.",
+          "metaKeywords":  "home buying, mumbai, real estate"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

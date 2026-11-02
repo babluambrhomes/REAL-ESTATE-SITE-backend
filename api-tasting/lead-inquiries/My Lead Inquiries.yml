@@ -1,0 +1,16 @@
+info:
+  name: My Lead Inquiries
+  type: http
+  seq: 4
+
+http:
+  method: GET
+  url: "{{base_url}}api/v1/lead-inquiries/me?page=1&limit=10"
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false
