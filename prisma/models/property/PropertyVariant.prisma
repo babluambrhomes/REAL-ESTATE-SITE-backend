@@ -76,7 +76,7 @@ model PropertyVariant {
 
   // Floor plans: [{"url": "...", "title": "2 BHK Floor Plan"}, ...]
   floorPlans Json? @default("[]") @map("floor_plans") @db.JsonB
-  // 360 tour videos/embeds: [{"url": "...", "title": "...", "thumbnailUrl": "..."}, ...]
+  // 360 tour videos: [{"url": "...", "title": "...", "thumbnailUrl": "..."}, ...]
   tour360    Json? @default("[]") @map("tour_360") @db.JsonB
 
   // Brochure PDF link (Download Brochure button ke liye)
@@ -89,6 +89,9 @@ model PropertyVariant {
   // --- Display ---
   isActive     Boolean @default(true) @map("is_active")
   displayOrder Int     @default(0) @map("display_order")
+
+  // --- Videos ---
+  videoUploads Video[] @relation("VariantVideos")
 
   // --- Timestamps ---
   createdAt DateTime @default(now()) @map("created_at")

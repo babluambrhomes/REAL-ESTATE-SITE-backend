@@ -13,7 +13,11 @@ model Video {
   propertyId String?   @map("property_id") @db.Uuid
   property   Property? @relation("PropertyVideos", fields: [propertyId], references: [id], onDelete: SetNull)
 
-  entityType   VideoEntityType @default(GENERIC) @map("entity_type")
+  variantId String?          @map("variant_id") @db.Uuid
+  variant   PropertyVariant? @relation("VariantVideos", fields: [variantId], references: [id], onDelete: Cascade)
+
+  entityType   VideoEntityType @map("entity_type")
+  
   name         String
   originalName String         @map("original_name")
   sizeBytes    Int?           @map("size_bytes")
@@ -36,6 +40,7 @@ model Video {
   @@index([sellerId])
   @@index([organizationId])
   @@index([propertyId])
+  @@index([variantId])
   @@index([status])
   @@index([entityType])
   @@map("videos")

@@ -1,6 +1,12 @@
 import { Prisma } from "../../generated/prisma/client";
 import { PropertyStatus } from "../../generated/prisma/enums";
-import { sellerIdentitySelect, resolveSellerIdentity, SellerIdentity } from "../../helpers";
+import {
+  sellerIdentitySelect,
+  resolveSellerIdentity,
+  SellerIdentity,
+  readyVideoRelationSelect,
+  withVideoUrls,
+} from "../../helpers";
 
 /**
  * PropertyStatus values that may appear in a public listing.
@@ -84,7 +90,7 @@ export const propertyDetailSelect: Prisma.PropertySelect = {
   priceJustification: true,
   otherAdvantages: true,
   locationAdvantage: true,
-  videos: true,
+  videoUploads: readyVideoRelationSelect,
   reraNumber: true,
   registrationNumber: true,
   taxAssessment: true,
@@ -138,6 +144,7 @@ export const propertyDetailSelect: Prisma.PropertySelect = {
       images: true,
       floorPlans: true,
       tour360: true,
+      videoUploads: readyVideoRelationSelect,
       brochure: true,
       marketOutlook: true,
       seoKeywords: true,
@@ -184,7 +191,7 @@ export const toCard = (property: any) => {
     ...rest
   } = property;
 
-  return {
+  return withVideoUrls({
     ...rest,
     organization,
     seller,
@@ -192,5 +199,5 @@ export const toCard = (property: any) => {
     featuredImage,
     imagesCount: images.length,
     variants: property.variants,
-  };
+  });
 };

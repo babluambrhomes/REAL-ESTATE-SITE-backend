@@ -15,6 +15,8 @@ import {
   generateSlug,
   ensureCategory,
   assertCanBecomeIndividualSeller,
+  readyVideoRelationSelect,
+  withVideoUrls,
 } from "../../helpers";
 import { uploadFile } from "../../helpers/cloudinary.helper";
 import {
@@ -51,7 +53,7 @@ const sellerProfileSelect = {
   responseTimeMinutes: true,
   isAvailable: true,
   availabilityDetails: true,
-  videos: true,
+  videoUploads: readyVideoRelationSelect,
   locations: true,
   bankApprovalList: true,
   achievements: true,
@@ -198,10 +200,12 @@ const becomeSeller = async (userId: string, data: BecomeSellerInput) => {
         select: { id: true },
       });
 
-      return tx.sellerProfile.findUnique({
-        where: { id: created.id },
-        select: sellerProfileSelect,
-      });
+      return withVideoUrls(
+        (await tx.sellerProfile.findUnique({
+          where: { id: created.id },
+          select: sellerProfileSelect,
+        }))!
+      );
     })
   );
 };
@@ -248,7 +252,10 @@ const getMySeller = async (userId: string) => {
     .filter((req) => req.isRequired)
     .every((req) => docMap.get(req.docType)?.status === "VERIFIED");
 
-  return { ...seller, kyc: { requirements: kycRequirements, complete: kycComplete } };
+  return withVideoUrls({
+    ...seller,
+    kyc: { requirements: kycRequirements, complete: kycComplete },
+  });
 };
 
 /**
@@ -291,7 +298,7 @@ const updateSeller = async (userId: string, data: UpdateSellerInput) => {
     });
   });
 
-  return updated;
+  return withVideoUrls(updated);
 };
 
 const updateSlug = async (userId: string, slug: string) => {
@@ -303,18 +310,22 @@ const updateSlug = async (userId: string, slug: string) => {
   const newSlug = slugify(slug, { lower: true, strict: true });
 
   if (seller.slug === newSlug) {
-    return prisma.sellerProfile.findUnique({
-      where: { id: seller.id },
-      select: sellerProfileSelect,
-    });
+    return withVideoUrls(
+      (await prisma.sellerProfile.findUnique({
+        where: { id: seller.id },
+        select: sellerProfileSelect,
+      }))!
+    );
   }
 
   try {
-    return await prisma.sellerProfile.update({
-      where: { id: seller.id },
-      data: { slug: newSlug },
-      select: sellerProfileSelect,
-    });
+    return withVideoUrls(
+      await prisma.sellerProfile.update({
+        where: { id: seller.id },
+        data: { slug: newSlug },
+        select: sellerProfileSelect,
+      })
+    );
   } catch (err) {
     if (isUniqueViolation(err)) {
       throw new ApiError(409, "This slug is already taken by another seller");
@@ -410,7 +421,7 @@ const getPublicProfile = async (slug: string) => {
       responseTimeMinutes: true,
       isAvailable: true,
       availabilityDetails: true,
-      videos: true,
+      videoUploads: readyVideoRelationSelect,
       locations: true,
       bankApprovalList: true,
       achievements: true,
@@ -487,7 +498,7 @@ const getPublicProfile = async (slug: string) => {
     },
   });
 
-  return {
+  return withVideoUrls({
     ...rest,
     panNumber: maskPan(panNumber),
     aadhaarNumber: maskAadhaar(aadhaarNumber),
@@ -496,7 +507,7 @@ const getPublicProfile = async (slug: string) => {
     averageRating,
     ratingCount: ratings.length,
     _count: { ...seller._count, properties: propertiesCount },
-  };
+  });
 };
 
 // Public seller FAQ list — buyer profile pe FAQ section lazy-load kar sake.

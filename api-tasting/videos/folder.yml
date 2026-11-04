@@ -1,0 +1,7 @@
+info:
+  name: videos
+  type: folder
+  seq: 16
+
+request:
+  auth: inherit

@@ -9,6 +9,8 @@ import {
   generateSlug,
   ensureCategory,
   assertCanCreateOrganization,
+  readyVideoRelationSelect,
+  withVideoUrls,
 } from "../../helpers";
 import {
   SYSTEM_ORG_ROLES,
@@ -81,6 +83,7 @@ const orgSelect = {
   createdBy: true,
   createdAt: true,
   updatedAt: true,
+  videoUploads: readyVideoRelationSelect,
   sellerProfile: {
     select: {
       id: true,
@@ -315,6 +318,7 @@ const createOrganization = async (
           orderBy: { roleName: "asc" },
         }),
         sellerProfile,
+        videoUploads: [],
         membership: {
           roleId: ownerRoleId,
           roleName: OWNER_ROLE_NAME,
@@ -347,7 +351,7 @@ const listMyOrganizations = async (userId: string) => {
     m.organization && m.contextId !== null
       ? [
           {
-            ...m.organization,
+            ...withVideoUrls(m.organization),
             membership: { id: m.id, role: m.role },
           },
         ]
@@ -393,7 +397,7 @@ const getOrganization = async (orgId: string, userId: string) => {
     throw new ApiError(404, "Organization not found");
   }
 
-  return { ...org, callerRole: membership.role };
+  return withVideoUrls({ ...org, callerRole: membership.role });
 };
 
 /**

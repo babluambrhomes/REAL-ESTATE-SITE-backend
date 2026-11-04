@@ -22,7 +22,6 @@ const orgProfileFields = {
   isAvailable: z.boolean().optional(),
   responseTimeMinutes: z.number().int().min(0).optional(),
   availabilityDetails: z.record(z.string(), z.any()).optional(),
-  videos: z.array(z.any()).optional(),
   locations: z.array(z.any()).optional(),
   achievements: z.array(z.any()).optional(),
   socialLinks: z.array(z.any()).optional(),

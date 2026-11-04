@@ -27,6 +27,7 @@ import blogPostRouter from "./modules/blogPost/blogPost.route";
 import blogPostPublicRouter from "./modules/blogPost/blogPost.public.route";
 import searchRouter from "./modules/search/search.route";
 import uploadRouter from "./modules/upload/upload.route";
+import videoRouter from "./modules/video/video.route";
 import "./workers/email.worker";
 import handleWebhookRouter from "./modules/webhook/webhook.route";
 
@@ -79,6 +80,7 @@ app.use("/api/v1/buyer-questions", buyerQuestionRouter);
 app.use("/api/v1/blog-posts", blogPostPublicRouter);
 app.use("/api/v1/search", searchRouter);
 app.use("/api/v1/uploads", uploadRouter);
+app.use("/api/v1/videos", videoRouter);
 
 app.get("/health", (req, res) => {
   res.json({ message: "Real Estate API is running fine" });

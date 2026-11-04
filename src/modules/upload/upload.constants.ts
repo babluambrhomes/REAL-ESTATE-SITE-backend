@@ -8,13 +8,17 @@ export const VIDEO_MAX_LENGTH_SECONDS = 50;
 export const VIDEO_UPLOAD_TIMEOUT_SECONDS = 60 * 60; // signed URL valid for 1 hour
 export const VIDEO_ALLOWED_EXTENSIONS = [".mp4", ".mov", ".m4v", ".webm", ".mkv"] as const;
 
-export const VIDEO_ENTITY_TYPES = [
-  "GENERIC",
-  "PROPERTY",
-  "PROPERTY_TOUR_360",
-  "PROPERTY_FLOOR_PLAN",
-  "SELLER",
-  "BLOG_POST",
+export const VIDEO_ENTITY_TYPES = ["PROPERTY", "SELLER", "ORGANIZATION"] as const;
+
+export const VIDEO_STATUSES = [
+  "WAITING",
+  "UPLOADING",
+  "ASSET_CREATED",
+  "PROCESSING",
+  "READY",
+  "FAILED",
+  "CANCELLED",
+  "TIMED_OUT",
 ] as const;
 
 export type VideoEntityType = (typeof VIDEO_ENTITY_TYPES)[number];

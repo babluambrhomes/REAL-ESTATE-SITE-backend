@@ -19,7 +19,6 @@ const profileFields = {
   happyClientsCount: z.number().int().min(0).optional(),
   responseTimeMinutes: z.number().int().min(0).optional(),
   availabilityDetails: z.record(z.string(), z.any()).optional(),
-  videos: z.array(z.any()).optional(),
   locations: z.array(z.any()).optional(),
   bankApprovalList: z.array(z.any()).optional(),
   achievements: z.array(z.any()).optional(),

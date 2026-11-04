@@ -75,6 +75,11 @@ variables:
     enabled: true
     secret: false
 
+  - name: videoId
+    value: ''
+    enabled: true
+    secret: false
+
   - name: faqId
     value: ''
     enabled: true

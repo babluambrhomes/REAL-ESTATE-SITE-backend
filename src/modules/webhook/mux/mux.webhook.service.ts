@@ -102,11 +102,13 @@ export const processMuxWebhookEvent = async (
     }
 
     case "video.upload.errored": {
+      const timedOut = event.data.status === "timed_out";
+
       await prisma.video.updateMany({
         where: { uploadId: event.data.id },
         data: {
-          status: VideoStatus.FAILED,
-          error: "Mux upload failed",
+          status: timedOut ? VideoStatus.TIMED_OUT : VideoStatus.FAILED,
+          error: timedOut ? "Mux upload timed out" : "Mux upload failed",
         },
       });
 

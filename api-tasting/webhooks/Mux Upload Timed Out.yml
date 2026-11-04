@@ -1,0 +1,29 @@
+info:
+  name: Mux Upload Timed Out
+  type: http
+  seq: 2
+
+http:
+  method: POST
+  url: "{{base_url}}api/v1/webhooks/mux"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+          "type":  "video.upload.errored",
+          "data":  {
+                       "id":  "upload_123",
+                       "status":  "timed_out"
+                   }
+      }
+  auth: none
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

@@ -1,7 +1,7 @@
 info:
   name: webhooks
   type: folder
-  seq: 17
+  seq: 18
 
 request:
   auth: inherit

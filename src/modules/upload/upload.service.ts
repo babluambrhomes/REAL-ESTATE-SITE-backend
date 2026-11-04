@@ -18,34 +18,9 @@ import {
   UploadVisibility,
 } from "./upload.constants";
 
-import crypto from "crypto";
 import path from "path";
-import prisma from "../../config/prisma";
-import { getMuxClient, getMuxCorsOrigin } from "../../config/mux";
-import { resolveSellerContextForUser } from "../../helpers";
-import { VideoStatus } from "../../generated/prisma/enums";
+
 import { ApiError } from "../../utils";
-import {
-  VIDEO_ALLOWED_EXTENSIONS,
-  VIDEO_MAX_LENGTH_SECONDS,
-  VIDEO_MAX_SIZE_BYTES,
-  VIDEO_UPLOAD_TIMEOUT_SECONDS,
-  VideoEntityType,
-} from "./upload.constants";
-import { VideoPresignInput } from "./upload.validation";
-
-export interface VideoPresignResult {
-  videoId: string;
-  name: string;
-  size: number;
-  length: number;
-  entityType: VideoEntityType;
-  uploadId: string;
-  uploadUrl: string;
-  expiresAt: string;
-}
-
-
 
 export interface UploadResult {
   key: string;
@@ -220,124 +195,6 @@ export const deleteUpload = async (key: string | string[]): Promise<void> => {
   const keys = Array.isArray(key) ? key : [key];
   const validKeys = keys.filter((k) => Boolean(k && k.trim()));
   await Promise.all(validKeys.map((k) => deleteFromS3(k)));
-};
-
-
-
-
-
-const sanitizeBaseName = (name: string): string =>
-  path
-    .parse(name)
-    .name.replace(/[^a-zA-Z0-9._-]/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^[-.]+|[-.]+$/g, "")
-    .slice(0, 150) || "video";
-
-const buildVideoName = (originalName: string, videoId: string): string => {
-  const ext = path.extname(originalName).toLowerCase();
-
-  if (
-    !VIDEO_ALLOWED_EXTENSIONS.includes(
-      ext as (typeof VIDEO_ALLOWED_EXTENSIONS)[number]
-    )
-  ) {
-    throw new ApiError(400, "Unsupported video format");
-  }
-
-  return `${sanitizeBaseName(originalName)}-${videoId}${ext}`;
-};
-
-const resolveOptionalSellerContext = async (userId: string) => {
-  try {
-    const ctx = await resolveSellerContextForUser(userId);
-    return {
-      sellerId: ctx.sellerId,
-      organizationId: ctx.organizationId,
-    };
-  } catch (error) {
-    if (
-      error instanceof ApiError &&
-      (error.statusCode === 400 ||
-        error.statusCode === 403 ||
-        error.statusCode === 409)
-    ) {
-      return { sellerId: null, organizationId: null };
-    }
-    throw error;
-  }
-};
-
-export const createVideoPresign = async (
-  input: VideoPresignInput,
-  userId: string
-): Promise<VideoPresignResult> => {
-  if (input.size > VIDEO_MAX_SIZE_BYTES) {
-    throw new ApiError(400, "Video must be 20MB or less");
-  }
-
-  if (input.length > VIDEO_MAX_LENGTH_SECONDS) {
-    throw new ApiError(400, "Video must be 50 seconds or less");
-  }
-
-  const sellerContext = await resolveOptionalSellerContext(userId);
-  const videoId = crypto.randomUUID();
-  const name = buildVideoName(input.name, videoId);
-
-  const upload = await getMuxClient().video.uploads.create({
-    cors_origin: getMuxCorsOrigin(),
-    timeout: VIDEO_UPLOAD_TIMEOUT_SECONDS,
-    new_asset_settings: {
-      playback_policies: ["public"],
-      video_quality: "basic",
-      max_resolution_tier: "1080p",
-      passthrough: videoId,
-      meta: {
-        title: name,
-        external_id: videoId,
-        creator_id: userId,
-      },
-    },
-  });
-
-  if (!upload.url) {
-    await getMuxClient().video.uploads.cancel(upload.id).catch(() => undefined);
-    throw new ApiError(502, "Mux did not return an upload URL");
-  }
-
-  try {
-    await prisma.video.create({
-      data: {
-        id: videoId,
-        userId,
-        sellerId: sellerContext.sellerId,
-        organizationId: sellerContext.organizationId,
-        entityType: input.entityType,
-        name,
-        originalName: input.name,
-        sizeBytes: input.size,
-        lengthSeconds: input.length,
-        uploadId: upload.id,
-        status: VideoStatus.WAITING,
-      },
-    });
-  } catch (error) {
-    await getMuxClient().video.uploads.cancel(upload.id).catch(() => undefined);
-    throw error;
-  }
-
-  return {
-    videoId,
-    name,
-    size: input.size,
-    length: input.length,
-    entityType: input.entityType,
-    uploadId: upload.id,
-    uploadUrl: upload.url,
-    expiresAt: new Date(
-      Date.now() + VIDEO_UPLOAD_TIMEOUT_SECONDS * 1000
-    ).toISOString(),
-  };
 };
 
 

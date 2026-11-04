@@ -77,12 +77,6 @@ const imageObject = z.object({
   isFeatured: z.boolean().optional(),
 });
 
-const videoObject = z.object({
-  url: z.string().trim().min(1, "Video url is required").max(2000),
-  thumbnailUrl: z.string().trim().max(2000).optional(),
-  title: z.string().trim().max(300).optional(),
-});
-
 const floorPlanObject = z.object({
   url: z.string().trim().min(1, "Floor plan url is required").max(2000),
   title: z.string().trim().max(300).optional(),
@@ -122,7 +116,6 @@ export const createVariantSchema = z.object({
   furnishingItems: z.array(z.record(z.string(), z.any())).optional(),
   images: z.array(imageObject).optional(),
   floorPlans: z.array(floorPlanObject).optional(),
-  tour360: z.array(videoObject).optional(),
   brochure: z.string().trim().optional(),
   marketOutlook: z.string().trim().max(5000).optional(),
   seoKeywords: z.string().trim().max(500).optional(),
@@ -159,8 +152,6 @@ export const createPropertySchema = z.object({
   priceJustification: z.string().trim().max(5000).optional(),
   otherAdvantages: z.array(z.string().trim().min(1)).optional(),
   locationAdvantage: z.string().trim().max(5000).optional(),
-
-  videos: z.array(videoObject).optional(),
 
   reraNumber: z.string().trim().max(100).optional(),
   registrationNumber: z.string().trim().max(100).optional(),

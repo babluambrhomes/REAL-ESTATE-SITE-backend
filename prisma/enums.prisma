@@ -328,10 +328,7 @@ enum VideoStatus {
 }
 
 enum VideoEntityType {
-  GENERIC
   PROPERTY
-  PROPERTY_TOUR_360
-  PROPERTY_FLOOR_PLAN
   SELLER
-  BLOG_POST
+  ORGANIZATION
 }

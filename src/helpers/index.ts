@@ -57,6 +57,19 @@ export {
 export type { SellerIdentity } from "./ownership.helper";
 
 export {
+  videoPublicSelect,
+  readyVideoRelationSelect,
+  buildPlaybackUrl,
+  toVideoResponse,
+  toVideoResponses,
+  withVideoUrls,
+  deleteMuxVideo,
+  deleteVideosForEntity,
+  deleteVideosForVariant,
+} from "./video.helper";
+export type { VideoPublic } from "./video.helper";
+
+export {
   resolveRequestedOrgId,
   resolveOrgContext,
   resolveIndividualContext,

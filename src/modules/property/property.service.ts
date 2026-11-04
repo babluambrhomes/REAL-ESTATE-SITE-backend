@@ -20,10 +20,18 @@ import {
   ownedPropertyWhere,
   ownedPropertyRelation,
   assertRequestedOrgMatchesContext,
+  withVideoUrls,
+  deleteVideosForEntity,
+  deleteVideosForVariant,
 } from "../../helpers";
 import { processImage } from "../../workers/image/imageWorker.pool";
 import { uploadFile, deleteCloudinaryFile, isCloudinaryUrl } from "../../helpers/cloudinary.helper";
-import { PropertyStatus, ListingStatus, VerificationStatus } from "../../generated/prisma/enums";
+import {
+  PropertyStatus,
+  ListingStatus,
+  VerificationStatus,
+  VideoEntityType,
+} from "../../generated/prisma/enums";
 import { Prisma } from "../../generated/prisma/client";
 import { SellerContext } from "../../types";
 import {
@@ -217,10 +225,12 @@ const createProperty = async (ctx: SellerContext, data: CreatePropertyInput) => 
         })),
       });
 
-      return tx.property.findUnique({
-        where: { id: property.id },
-        select: propertyDetailSelect,
-      });
+      return withVideoUrls(
+        (await tx.property.findUnique({
+          where: { id: property.id },
+          select: propertyDetailSelect,
+        }))!
+      );
     })
   );
 };
@@ -478,7 +488,11 @@ const getPublicProperty = async (slug: string, viewerId?: string) => {
     isLiked = Boolean(like);
   }
 
-  return { ...property, viewsCount: property.viewsCount + 1, isLiked };
+  return {
+    ...withVideoUrls(property),
+    viewsCount: property.viewsCount + 1,
+    isLiked,
+  };
 };
 
 const getMyProperties = async (
@@ -532,7 +546,7 @@ const getMyProperty = async (ctx: SellerContext, propertyId: string) => {
     throw new ApiError(404, "Property not found");
   }
 
-  return property;
+  return withVideoUrls(property);
 };
 
 const updateProperty = async (
@@ -558,11 +572,13 @@ const updateProperty = async (
   }
 
   try {
-    return await prisma.property.update({
-      where: { id: property.id },
-      data: updatePayload,
-      select: propertyDetailSelect,
-    });
+    return withVideoUrls(
+      await prisma.property.update({
+        where: { id: property.id },
+        data: updatePayload,
+        select: propertyDetailSelect,
+      })
+    );
   } catch (err) {
     if (isUniqueViolation(err)) {
       throw new ApiError(409, "Slug is already in use");
@@ -578,11 +594,13 @@ const updatePropertyStatus = async (
 ) => {
   const property = await ensureOwnProperty(ctx, propertyId);
 
-  return prisma.property.update({
-    where: { id: property.id },
-    data: { propertyStatus: propertyStatus as PropertyStatus },
-    select: propertyDetailSelect,
-  });
+  return withVideoUrls(
+    await prisma.property.update({
+      where: { id: property.id },
+      data: { propertyStatus: propertyStatus as PropertyStatus },
+      select: propertyDetailSelect,
+    })
+  );
 };
 
 /**
@@ -592,11 +610,15 @@ const updatePropertyStatus = async (
 const softDeleteProperty = async (ctx: SellerContext, propertyId: string) => {
   const property = await ensureOwnProperty(ctx, propertyId);
 
-  return prisma.property.update({
+  const deleted = await prisma.property.update({
     where: { id: property.id },
     data: { listingStatus: ListingStatus.DELETED },
     select: { id: true, listingStatus: true },
   });
+
+  await deleteVideosForEntity(VideoEntityType.PROPERTY, property.id);
+
+  return deleted;
 };
 
 const addImages = async (
@@ -616,11 +638,13 @@ const addImages = async (
 
   const updated = [...current, ...additions];
 
-  return prisma.property.update({
-    where: { id: property.id },
-    data: { images: updated },
-    select: propertyDetailSelect,
-  });
+  return withVideoUrls(
+    await prisma.property.update({
+      where: { id: property.id },
+      data: { images: updated },
+      select: propertyDetailSelect,
+    })
+  );
 };
 
 const setImageOrder = async (
@@ -630,11 +654,13 @@ const setImageOrder = async (
 ) => {
   const property = await ensureOwnProperty(ctx, propertyId);
 
-  return prisma.property.update({
-    where: { id: property.id },
-    data: { images },
-    select: propertyDetailSelect,
-  });
+  return withVideoUrls(
+    await prisma.property.update({
+      where: { id: property.id },
+      data: { images },
+      select: propertyDetailSelect,
+    })
+  );
 };
 
 const removeImage = async (ctx: SellerContext, propertyId: string, url: string) => {
@@ -655,11 +681,13 @@ const removeImage = async (ctx: SellerContext, propertyId: string, url: string) 
     // }
   }
 
-  return prisma.property.update({
-    where: { id: property.id },
-    data: { images: updated },
-    select: propertyDetailSelect,
-  });
+  return withVideoUrls(
+    await prisma.property.update({
+      where: { id: property.id },
+      data: { images: updated },
+      select: propertyDetailSelect,
+    })
+  );
 };
 
 const addVariant = async (
@@ -702,6 +730,7 @@ const deleteVariant = async (
 ) => {
   const variant = await ensureOwnVariant(ctx, propertyId, variantId);
 
+  await deleteVideosForVariant(variant.id);
   await prisma.propertyVariant.delete({ where: { id: variant.id } });
 
   return { message: "Variant deleted" };
@@ -789,15 +818,17 @@ const verifyProperty = async (
 
   const isVerified = verificationStatus === VerificationStatus.VERIFIED;
 
-  return prisma.property.update({
-    where: { id: propertyId },
-    data: {
-      verificationStatus,
-      verifiedBy: isVerified ? adminId : null,
-      verifiedAt: isVerified ? new Date() : null,
-    },
-    select: propertyDetailSelect,
-  });
+  return withVideoUrls(
+    await prisma.property.update({
+      where: { id: propertyId },
+      data: {
+        verificationStatus,
+        verifiedBy: isVerified ? adminId : null,
+        verifiedAt: isVerified ? new Date() : null,
+      },
+      select: propertyDetailSelect,
+    })
+  );
 };
 
 /**
@@ -817,11 +848,13 @@ const setPropertyListingStatus = async (
     throw new ApiError(404, "Property not found");
   }
 
-  return prisma.property.update({
-    where: { id: propertyId },
-    data: { listingStatus },
-    select: propertyDetailSelect,
-  });
+  return withVideoUrls(
+    await prisma.property.update({
+      where: { id: propertyId },
+      data: { listingStatus },
+      select: propertyDetailSelect,
+    })
+  );
 };
 
 export {
