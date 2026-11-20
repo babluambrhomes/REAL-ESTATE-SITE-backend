@@ -2,7 +2,13 @@ import path from "path";
 import slugify from "slugify";
 import prisma from "../../config/prisma";
 import { ApiError } from "../../utils";
-import { BecomeSellerInput, UpdateSellerInput } from "./seller.validation";
+import {
+  BecomeSellerInput,
+  UpdateSellerInput,
+  ListPublicSellersQueryInput,
+  SellerCategoryOption,
+  SellerOnboardingType,
+} from "./seller.validation";
 import { processImage } from "../../workers/image/imageWorker.pool";
 import { getDocRequirements } from "../../config/sellerKyc";
 import {
@@ -15,6 +21,7 @@ import {
   generateSlug,
   ensureCategory,
   assertCanBecomeIndividualSeller,
+  assertCanCreateOrganization,
   readyVideoRelationSelect,
   withVideoUrls,
 } from "../../helpers";
@@ -24,7 +31,9 @@ import {
   SellerStatus,
   ListingStatus,
   BlogStatus,
+  VerificationStatus,
 } from "../../generated/prisma/enums";
+import { Prisma } from "../../generated/prisma/client";
 
 const sellerProfileSelect = {
   id: true,
@@ -130,6 +139,68 @@ const getCategories = async (page: number, limit: number) => {
   };
 };
 
+const checkOnboardingEligibility = async (userId: string) => {
+  const check = async (fn: () => Promise<void>) => {
+    try {
+      await fn();
+      return { allowed: true, reason: null as string | null };
+    } catch (error) {
+      return {
+        allowed: false,
+        reason: error instanceof ApiError ? error.message : "Not eligible",
+      };
+    }
+  };
+
+  const [individual, organization] = await Promise.all([
+    check(() => assertCanBecomeIndividualSeller(userId)),
+    check(() => assertCanCreateOrganization(userId)),
+  ]);
+
+  return { individual, organization };
+};
+
+const getSellerOnboardingFields = async (
+  userId: string,
+  sellerType: SellerOnboardingType
+) => {
+  const [categories, eligibility] = await Promise.all([
+    prisma.sellerCategory.findMany({
+      where: { isActive: true },
+      orderBy: { name: "asc" },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        description: true,
+        imageUrl: true,
+      },
+    }),
+    checkOnboardingEligibility(userId),
+  ]);
+
+  const categoryOptions: SellerCategoryOption[] = categories.map((category) => ({
+    value: category.id,
+    label: category.name,
+    slug: category.slug,
+    description: category.description,
+    imageUrl: category.imageUrl,
+  }));
+
+  return {
+    sellerType,
+    eligibility: {
+      canBecomeIndividualSeller: eligibility.individual.allowed,
+      canCreateOrganization: eligibility.organization.allowed,
+      reason:
+        sellerType === "ORGANIZATION"
+          ? eligibility.organization.reason
+          : eligibility.individual.reason,
+    },
+    categories: categoryOptions,
+  };
+};
+
 /**
  * Registers the caller as an INDIVIDUAL seller.
  *
@@ -156,20 +227,31 @@ const becomeSeller = async (userId: string, data: BecomeSellerInput) => {
 
   await ensureCategory(profileData.categoryId);
 
-  let slugBase = name;
+  let slugBase = name?.trim();
   if (!slugBase) {
-    const person = await prisma.person.findUnique({
-      where: { userId },
-      select: { firstName: true, lastName: true },
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        email: true,
+        phone: true,
+        person: {
+          select: { firstName: true, lastName: true },
+        },
+      },
     });
-    slugBase = person ? `${person.firstName} ${person.lastName}`.trim() : "";
-  }
 
-  if (!slugBase) {
-    throw new ApiError(
-      400,
-      "Provide a name so we can generate your seller profile URL"
-    );
+    const fullName = user?.person
+      ? [user.person.firstName, user.person.lastName]
+          .filter(Boolean)
+          .join(" ")
+          .trim()
+      : "";
+
+    slugBase =
+      fullName ||
+      user?.email?.split("@")[0] ||
+      user?.phone ||
+      "seller";
   }
 
   return withUniqueRetry(() =>
@@ -190,7 +272,7 @@ const becomeSeller = async (userId: string, data: BecomeSellerInput) => {
           // otherwise be an implicit bet on the default.
           organizationId: null,
           referenceCode: generateReferenceCode(),
-          slug: generateSlug(slugBase!),
+          slug: generateSlug(slugBase),
           sellerType: SellerType.INDIVIDUAL,
           ...(panNumber ? { panNumber } : {}),
           ...(aadhaarNumber ? { aadhaarNumber } : {}),
@@ -394,6 +476,135 @@ const updateMedia = async (
   return url;
 };
 
+const publicSellerCardSelect = {
+  id: true,
+  userId: true,
+  organizationId: true,
+  referenceCode: true,
+  slug: true,
+  sellerType: true,
+  headline: true,
+  logoUrl: true,
+  city: true,
+  state: true,
+  verificationStatus: true,
+  isAvailable: true,
+  category: { select: { id: true, name: true, slug: true } },
+  user: {
+    select: {
+      person: { select: { firstName: true, lastName: true, avatarUrl: true } },
+    },
+  },
+  organization: { select: { name: true } },
+  ratings: { where: { status: "PUBLISHED" }, select: { rating: true } },
+  _count: { select: { followers: true } },
+} satisfies Prisma.SellerProfileSelect;
+
+const countPropertiesForSeller = async (seller: {
+  sellerType: SellerType;
+  userId: string | null;
+  organizationId: string | null;
+}) =>
+  prisma.property.count({
+    where: {
+      ...(seller.sellerType === SellerType.ORGANIZATION
+        ? seller.organizationId
+          ? { organizationId: seller.organizationId }
+          : { id: "__none__" }
+        : seller.userId
+          ? { userId: seller.userId, organizationId: null }
+          : { id: "__none__" }),
+      listingStatus: { not: ListingStatus.DELETED },
+    },
+  });
+
+const listPublicSellers = async (query: ListPublicSellersQueryInput) => {
+  const { skip, take, page, limit } = getPaginationParams(query);
+
+  const where: Prisma.SellerProfileWhereInput = {
+    sellerStatus: SellerStatus.ACTIVE,
+  };
+
+  if (query.city) where.city = { equals: query.city, mode: "insensitive" };
+  if (query.category) where.category = { slug: query.category };
+  if (query.verified) {
+    where.verificationStatus =
+      query.verified === "true"
+        ? VerificationStatus.VERIFIED
+        : { not: VerificationStatus.VERIFIED };
+  }
+  if (query.q) {
+    where.OR = [
+      { headline: { contains: query.q, mode: "insensitive" } },
+      { about: { contains: query.q, mode: "insensitive" } },
+      {
+        user: {
+          person: { firstName: { contains: query.q, mode: "insensitive" } },
+        },
+      },
+      {
+        user: {
+          person: { lastName: { contains: query.q, mode: "insensitive" } },
+        },
+      },
+      { organization: { name: { contains: query.q, mode: "insensitive" } } },
+      { category: { name: { contains: query.q, mode: "insensitive" } } },
+    ];
+  }
+
+  const [sellers, total] = await Promise.all([
+    prisma.sellerProfile.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      skip,
+      take,
+      select: publicSellerCardSelect,
+    }),
+    prisma.sellerProfile.count({ where }),
+  ]);
+
+  const data = await Promise.all(
+    sellers.map(async (seller) => {
+      const { ratings, _count, user, organization, ...rest } = seller;
+      const averageRating =
+        ratings.length > 0
+          ? Math.round(
+              (ratings.reduce((sum, item) => sum + item.rating, 0) /
+                ratings.length) *
+                100
+            ) / 100
+          : null;
+
+      const name =
+        seller.sellerType === SellerType.ORGANIZATION
+          ? organization?.name ?? seller.headline ?? "Organization"
+          : [user?.person?.firstName, user?.person?.lastName]
+              .filter(Boolean)
+              .join(" ") ||
+            seller.headline ||
+            "Seller";
+
+      return {
+        ...rest,
+        name,
+        avatarUrl:
+          seller.sellerType === SellerType.ORGANIZATION
+            ? seller.logoUrl
+            : user?.person?.avatarUrl ?? seller.logoUrl,
+        averageRating,
+        ratingCount: ratings.length,
+        propertiesCount: await countPropertiesForSeller(seller),
+        followersCount: _count.followers,
+      };
+    })
+  );
+
+  return {
+    data,
+    ...buildPagination(total, page, limit),
+  };
+};
+
 const getPublicProfile = async (slug: string) => {
   const seller = await prisma.sellerProfile.findUnique({
     where: { slug },
@@ -539,6 +750,8 @@ export {
   updateSlug,
   updateMedia,
   getCategories,
+  getSellerOnboardingFields,
+  listPublicSellers,
   getPublicProfile,
   listPublicFaqs,
 };

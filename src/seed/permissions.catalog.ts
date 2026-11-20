@@ -78,6 +78,7 @@ const PLATFORM_PERMISSIONS: PermissionDef[] = [
   // --- Content & catalogue ---
   { scope: "PLATFORM", resource: "category", action: "manage", displayName: "Manage Seller Categories", description: "Create, edit and reorder seller categories" },
   { scope: "PLATFORM", resource: "blogPost", action: "manage", displayName: "Manage Blog Posts", description: "Create, edit and archive blog posts" },
+  { scope: "PLATFORM", resource: "happyCustomer", action: "manage", displayName: "Manage Happy Customers", description: "Create, edit, publish and remove happy customer stories" },
 
   // --- Platform administration ---
   { scope: "PLATFORM", resource: "role", action: "manage", displayName: "Manage Platform Roles", description: "Create and edit platform roles and their permissions" },

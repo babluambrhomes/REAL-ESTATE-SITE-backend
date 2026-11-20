@@ -1,5 +1,15 @@
 import { z } from "zod";
 
+export type SellerOnboardingType = "INDIVIDUAL" | "ORGANIZATION";
+
+export interface SellerCategoryOption {
+  value: string;
+  label: string;
+  slug: string;
+  description: string | null;
+  imageUrl: string | null;
+}
+
 const profileFields = {
   headline: z.string().max(200).trim().optional(),
   about: z.string().max(5000).trim().optional(),
@@ -66,6 +76,25 @@ export const updateSlugSchema = z.object({
     .trim(),
 });
 
+export const listPublicSellersQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).optional(),
+  limit: z.coerce.number().int().min(1).optional(),
+  q: z.string().trim().max(200).optional(),
+  city: z.string().trim().max(100).optional(),
+  category: z.string().trim().max(100).optional(),
+  verified: z.enum(["true", "false"]).optional(),
+});
+
+export const sellerOnboardingFieldsQuerySchema = z.object({
+  sellerType: z.enum(["INDIVIDUAL", "ORGANIZATION"]).default("INDIVIDUAL"),
+});
+
 export type BecomeSellerInput = z.infer<typeof becomeSellerSchema>;
 export type UpdateSellerInput = z.infer<typeof updateSellerSchema>;
 export type UpdateSlugInput = z.infer<typeof updateSlugSchema>;
+export type ListPublicSellersQueryInput = z.infer<
+  typeof listPublicSellersQuerySchema
+>;
+export type SellerOnboardingFieldsInput = z.infer<
+  typeof sellerOnboardingFieldsQuerySchema
+>;

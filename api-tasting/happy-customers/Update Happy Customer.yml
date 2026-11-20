@@ -1,0 +1,25 @@
+info:
+  name: Update Happy Customer
+  type: http
+  seq: 5
+
+http:
+  method: PATCH
+  url: "{{base_url}}api/v1/happy-customers/11111111-1111-4111-8111-111111111111"
+  auth: inherit
+  body:
+    mode: json
+    json: |
+      {
+        "message": "Great support from start to finish.",
+        "rating": 5,
+        "isActive": true,
+        "displayOrder": 1
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

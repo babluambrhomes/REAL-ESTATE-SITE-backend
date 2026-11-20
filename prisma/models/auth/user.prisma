@@ -69,6 +69,8 @@ model User {
   // User ne kin properties ko ratings/comments diye
   propertyRatingsGiven PropertyRating[]
 
+  happyCustomers HappyCustomer[]
+
   memberships          Member[]
   createdRoles         Role[]
   sentInvitations      Invitation[]   @relation("InvitedBy")

@@ -2,6 +2,7 @@ import { Router } from "express";
 import {
   becomeSeller,
   getCategories,
+  getOnboardingFields,
   getMyProfile,
   updateMyProfile,
   updateMySlug,
@@ -9,17 +10,32 @@ import {
   updateCover,
   getPublicProfile,
   listPublicFaqs,
+  listPublicSellers,
 } from "./seller.controller";
-import { protect, checkIndividualSeller, validate, upload } from "../../middlewares";
+import {
+  protect,
+  checkIndividualSeller,
+  parseQuery,
+  validate,
+  upload,
+} from "../../middlewares";
 import {
   becomeSellerSchema,
   updateSellerSchema,
   updateSlugSchema,
+  sellerOnboardingFieldsQuerySchema,
 } from "./seller.validation";
 
 const router = Router();
 
 router.get("/categories", getCategories);
+router.get(
+  "/onboarding-fields",
+  protect,
+  parseQuery(sellerOnboardingFieldsQuerySchema),
+  getOnboardingFields
+);
+router.get("/", listPublicSellers);
 
 router.post("/become-seller", protect, validate(becomeSellerSchema), becomeSeller);
 

@@ -8,6 +8,29 @@ import {
   VerificationStatus,
 } from "../generated/prisma/enums";
 
+export type WorkspaceType = "INDIVIDUAL" | "ORGANIZATION";
+
+export interface WorkspaceRole {
+  id: string;
+  name: string;
+}
+
+export interface Workspace {
+  id: string;
+  type: WorkspaceType;
+  label: string;
+  organizationId: string | null;
+  sellerId: string;
+  roles: WorkspaceRole[];
+  permissions: string[];
+  verificationStatus: VerificationStatus;
+}
+
+export interface WorkspaceSummary {
+  workspaces: Workspace[];
+  activeWorkspaceId: string | null;
+}
+
 export interface AuthUser {
   id: string;
   email: string;

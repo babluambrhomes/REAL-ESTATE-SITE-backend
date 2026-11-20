@@ -1,0 +1,29 @@
+info:
+  name: Create Happy Customer
+  type: http
+  seq: 3
+
+http:
+  method: POST
+  url: "{{base_url}}api/v1/happy-customers"
+  auth: inherit
+  body:
+    mode: json
+    json: |
+      {
+        "name": "Rohit Sharma",
+        "message": "Found the right home in just two weeks.",
+        "rating": 5,
+        "photoUrl": "https://example.com/happy-customer.jpg",
+        "address": "Mumbai, Maharashtra",
+        "userId": null,
+        "isActive": true,
+        "displayOrder": 0
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

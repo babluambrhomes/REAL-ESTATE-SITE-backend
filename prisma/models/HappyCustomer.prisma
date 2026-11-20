@@ -1,0 +1,22 @@
+model HappyCustomer {
+  id String @id @default(uuid()) @db.Uuid
+
+  name    String @db.VarChar(200)
+  message String @db.Text
+  rating  Int
+  photoUrl String? @map("photo_url") @db.Text
+  address  String? @db.VarChar(300)
+
+  userId String? @map("user_id") @db.Uuid
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  isActive     Boolean @default(true) @map("is_active")
+  displayOrder Int     @default(0) @map("display_order")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([isActive, displayOrder])
+  @@index([userId])
+  @@map("happy_customers")
+}

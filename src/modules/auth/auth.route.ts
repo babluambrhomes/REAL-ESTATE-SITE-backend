@@ -7,6 +7,7 @@ import {
   addContact,
   updatePassword,
   refreshToken,
+  getWorkspaces,
   logout,
   forgotPasswordRequest,
   resetPassword,
@@ -31,6 +32,7 @@ router.post("/login", authRateLimit, validate(loginSchema), login);
 router.post("/public-otp-verify", otpRateLimit, validate(verifyOtpSchema), publicOtpVerify);
 router.post("/private-otp-verify", protect, otpRateLimit, validate(confirmOtpSchema), privateOtpVerify);
 router.post("/refresh", validate(refreshTokenSchema), refreshToken);
+router.get("/workspaces", protect, getWorkspaces);
 router.post("/forgot-password", otpRateLimit, validate(forgotPasswordRequestSchema), forgotPasswordRequest);
 router.post("/reset-password", validate(resetPasswordSchema), resetPassword);
 router.patch("/me/contact", protect, validate(addContactSchema), addContact);

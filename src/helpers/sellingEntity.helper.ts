@@ -10,7 +10,7 @@ import { OrganizationStatus } from "../generated/prisma/enums";
  * on `findExistingSellingEntity`.
  */
 export type ExistingSellingEntity =
-  | { kind: "INDIVIDUAL_SELLER"; sellerProfileId: string; slug: string }
+  | { kind: "INDIVIDUAL"; sellerProfileId: string; slug: string }
   | { kind: "ORGANIZATION_OWNER"; organizationId: string; name: string };
 
 /**
@@ -66,7 +66,7 @@ export const findExistingSellingEntity = async (
 
   if (sellerProfile) {
     return {
-      kind: "INDIVIDUAL_SELLER",
+      kind: "INDIVIDUAL",
       sellerProfileId: sellerProfile.id,
       slug: sellerProfile.slug,
     };
@@ -95,7 +95,7 @@ export const assertCanBecomeIndividualSeller = async (
 ): Promise<void> => {
   const existing = await findExistingSellingEntity(userId);
 
-  if (existing?.kind === "INDIVIDUAL_SELLER") {
+  if (existing?.kind === "INDIVIDUAL") {
     throw new ApiError(409, "You are already registered as a seller");
   }
 
@@ -120,7 +120,7 @@ export const assertCanCreateOrganization = async (
 ): Promise<void> => {
   const existing = await findExistingSellingEntity(userId);
 
-  if (existing?.kind === "INDIVIDUAL_SELLER") {
+  if (existing?.kind === "INDIVIDUAL") {
     throw new ApiError(
       409,
       `You already have an individual seller profile (${existing.slug}). An individual seller and a company are two separate public selling entities, and one account cannot hold both — contact support if you need to turn your individual profile into a company.`

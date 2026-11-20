@@ -26,8 +26,19 @@ import {
   verifyRefreshToken,
   getLocationFromIP,
 } from "../../helpers";
-import { OtpPurpose, UserStatus, AccountOrigin, BuyerStatus } from "../../generated/prisma/enums";
+import {
+  OtpPurpose,
+  UserStatus,
+  AccountOrigin,
+  BuyerStatus,
+  MemberScope,
+  MemberStatus,
+  OrganizationStatus,
+  PermissionScope,
+  SellerStatus,
+} from "../../generated/prisma/enums";
 import type { Prisma } from "../../generated/prisma/client";
+import type { Workspace, WorkspaceSummary } from "../../types";
 import { userSelect } from "../../middlewares/auth.middleware";
 import emailQueue from "../../queues/email.queue";
 import smsQueue from "../../queues/sms.queue";
@@ -35,6 +46,154 @@ import { otpVerificationTemplate } from "../../emails/templates/otp-verification
 import { welcomeTemplate } from "../../emails/templates/welcome";
 import { passwordResetLinkTemplate } from "../../emails/templates/password-reset";
 import { firebaseAuth } from "../../config/firebase";
+
+const SELLER_WORKSPACE_PERMISSIONS = [
+  "sellerProfile:read",
+  "sellerProfile:update",
+  "property:create",
+  "property:read",
+  "property:update",
+  "property:delete",
+  "property:publish",
+  "lead:read",
+  "lead:update",
+  "siteVisit:read",
+  "siteVisit:update",
+  "buyerQuestion:read",
+  "buyerQuestion:answer",
+  "video:upload",
+];
+
+const canUseSellerProfile = (status: SellerStatus): boolean =>
+  status !== SellerStatus.SUSPENDED && status !== SellerStatus.DELETED;
+
+const getWorkspaceSummary = async (userId: string): Promise<WorkspaceSummary> => {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      person: { select: { firstName: true, lastName: true } },
+      sellerProfile: {
+        select: {
+          id: true,
+          sellerStatus: true,
+          verificationStatus: true,
+        },
+      },
+      memberships: {
+        where: {
+          scope: MemberScope.ORGANIZATION,
+          status: MemberStatus.ACTIVE,
+          contextId: { not: null },
+          organization: { is: { status: OrganizationStatus.ACTIVE } },
+        },
+        select: {
+          organization: {
+            select: {
+              id: true,
+              name: true,
+              verificationStatus: true,
+              sellerProfile: {
+                select: {
+                  id: true,
+                  sellerStatus: true,
+                },
+              },
+            },
+          },
+          role: {
+            select: {
+              id: true,
+              roleName: true,
+              rolePermissions: {
+                select: {
+                  permission: {
+                    select: {
+                      scope: true,
+                      resource: true,
+                      action: true,
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+        orderBy: { joinedAt: "desc" },
+      },
+    },
+  });
+
+  if (!user) return { workspaces: [], activeWorkspaceId: null };
+
+  let sellerWorkspace: Workspace | null = null;
+  const sellerProfile = user.sellerProfile;
+  if (sellerProfile && canUseSellerProfile(sellerProfile.sellerStatus)) {
+    const fullName = [user.person?.firstName, user.person?.lastName]
+      .filter(Boolean)
+      .join(" ")
+      .trim();
+
+    sellerWorkspace = {
+      id: sellerProfile.id,
+      type: "INDIVIDUAL",
+      label: fullName || "My Seller Account",
+      organizationId: null,
+      sellerId: sellerProfile.id,
+      roles: [],
+      permissions: [...SELLER_WORKSPACE_PERMISSIONS],
+      verificationStatus: sellerProfile.verificationStatus,
+    };
+  }
+
+  const orgWorkspaces = new Map<string, Workspace>();
+  for (const membership of user.memberships) {
+    const organization = membership.organization;
+    const sellerProfile = organization?.sellerProfile;
+    if (!organization || !sellerProfile) continue;
+    if (!canUseSellerProfile(sellerProfile.sellerStatus)) continue;
+
+    const permissions = membership.role.rolePermissions
+      .filter((rp) => rp.permission.scope === PermissionScope.ORGANIZATION)
+      .map((rp) => `${rp.permission.resource}:${rp.permission.action}`);
+
+    const existing = orgWorkspaces.get(organization.id);
+    if (existing) {
+      if (!existing.roles.some((role) => role.id === membership.role.id)) {
+        existing.roles.push({ id: membership.role.id, name: membership.role.roleName });
+      }
+      for (const permission of permissions) {
+        if (!existing.permissions.includes(permission)) {
+          existing.permissions.push(permission);
+        }
+      }
+      continue;
+    }
+
+    orgWorkspaces.set(organization.id, {
+      id: organization.id,
+      type: "ORGANIZATION",
+      label: organization.name,
+      organizationId: organization.id,
+      sellerId: sellerProfile.id,
+      roles: [{ id: membership.role.id, name: membership.role.roleName }],
+      permissions: [...new Set(permissions)],
+      verificationStatus: organization.verificationStatus,
+    });
+  }
+
+  const orgWorkspaceList = [...orgWorkspaces.values()];
+  const workspaces = [
+    ...(sellerWorkspace ? [sellerWorkspace] : []),
+    ...orgWorkspaceList,
+  ];
+
+  return {
+    workspaces,
+    activeWorkspaceId:
+      sellerWorkspace?.id ??
+      (orgWorkspaceList.length === 1 ? orgWorkspaceList[0].id : null),
+  };
+};
 
 const createAuthResponse = async (
   user: { id: string; email: string | null; phone: string | null; status: string; emailVerified: boolean; phoneVerified: boolean; createdAt: Date; updatedAt: Date },
@@ -44,6 +203,7 @@ const createAuthResponse = async (
   const { accessToken, refreshToken } = generateTokenPair(user.id);
   await storeRefreshToken(user.id, refreshToken, userAgent, ipAddress);
   getLocationFromIP(user.id, ipAddress);
+  const { workspaces, activeWorkspaceId } = await getWorkspaceSummary(user.id);
 
   return {
     user: {
@@ -58,6 +218,8 @@ const createAuthResponse = async (
     },
     accessToken,
     refreshToken,
+    workspaces,
+    activeWorkspaceId,
   };
 };
 
@@ -245,7 +407,6 @@ const register = async (data: RegisterInput, userAgent?: string, ipAddress?: str
 const login = async (data: LoginInput, userAgent?: string, ipAddress?: string) => {
   const { email, phone, password, FbTokenId } = data;
 
-  
   // --- Google Login ---
   if (FbTokenId) {
     //  console.log("FbTokenId",FbTokenId)
@@ -464,8 +625,9 @@ const refreshAccessToken = async (refreshToken: string) => {
 
   const tokens = generateTokenPair(user.id);
   await storeRefreshToken(user.id, tokens.refreshToken);
+  const workspaceSummary = await getWorkspaceSummary(user.id);
 
-  return tokens;
+  return { ...tokens, ...workspaceSummary };
 };
 
 const logout = async (refreshToken?: string) => {
@@ -545,6 +707,7 @@ export {
   addContact,
   updatePassword,
   refreshAccessToken,
+  getWorkspaceSummary,
   logout,
   logoutAll,
   forgotPasswordRequest,

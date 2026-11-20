@@ -13,8 +13,10 @@
 
 import prisma from "../src/config/prisma";
 import { seedRbac } from "../src/seed/rbac.seed";
+import { seedSellerCategories } from "../src/seed/sellerCategory.seed";
 
 seedRbac({ createdByUserId: process.env.PLATFORM_BOOTSTRAP_USER_ID })
+  .then(() => seedSellerCategories())
   .then(async () => {
     await prisma.$disconnect();
   })

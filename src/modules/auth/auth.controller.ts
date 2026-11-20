@@ -31,6 +31,7 @@ const register = asyncHandler(async (req: AuthRequest, res: Response) => {
 const login = asyncHandler(async (req: AuthRequest, res: Response) => {
   const userAgent = req.headers["user-agent"];
   const ipAddress = req.ip;
+  
 
   const result = await authService.login(req.body as LoginInput, userAgent, ipAddress) as any;
 
@@ -39,14 +40,16 @@ const login = asyncHandler(async (req: AuthRequest, res: Response) => {
     return;
   }
 
-  res.cookie("accessToken", result.accessToken, getAccessCookieOptions());
-  res.cookie("refreshToken", result.refreshToken, getRefreshCookieOptions());
+  const { message, requiresOtp, verificationToken, ...authData } = result;
+
+  res.cookie("accessToken", authData.accessToken, getAccessCookieOptions());
+  res.cookie("refreshToken", authData.refreshToken, getRefreshCookieOptions());
 
   res.status(200).json(
     new ApiResponse(
       200,
-      { user: result.user, accessToken: result.accessToken, refreshToken: result.refreshToken },
-      "Logged in successfully"
+      authData,
+      message ?? "Logged in successfully"
     )
   );
 });
@@ -60,38 +63,34 @@ const privateOtpVerify = asyncHandler(async (req: AuthRequest, res: Response) =>
   const userAgent = req.headers["user-agent"];
   const ipAddress = req.ip;
 
-  const result = await authService.privateOtpVerify(req.user!.id, req.body as ConfirmOtpInput, userAgent, ipAddress) as any;
+    const result = await authService.privateOtpVerify(req.user!.id, req.body as ConfirmOtpInput, userAgent, ipAddress) as any;
+    const { message, ...authData } = result;
 
-  if (result.accessToken && result.refreshToken) {
-    res.cookie("accessToken", result.accessToken, getAccessCookieOptions());
-    res.cookie("refreshToken", result.refreshToken, getRefreshCookieOptions());
-  }
+    if (authData.accessToken && authData.refreshToken) {
+      res.cookie("accessToken", authData.accessToken, getAccessCookieOptions());
+      res.cookie("refreshToken", authData.refreshToken, getRefreshCookieOptions());
+    }
 
-  res.status(200).json(
-    new ApiResponse(
-      200,
-      {
-        user: result.user || null,
-        accessToken: result.accessToken || null,
-        refreshToken: result.refreshToken || null,
-      },
-      result.message
-    )
-  );
+    res.status(200).json(new ApiResponse(200, authData, message));
 });
 
 const refreshToken = asyncHandler(async (req: AuthRequest, res: Response) => {
   const { refreshToken: token } = req.body as RefreshTokenInput;
 
-  const { accessToken, refreshToken: newRefreshToken } =
-    await authService.refreshAccessToken(token);
+  const result = await authService.refreshAccessToken(token);
 
-  res.cookie("accessToken", accessToken, getAccessCookieOptions());
-  res.cookie("refreshToken", newRefreshToken, getRefreshCookieOptions());
+  res.cookie("accessToken", result.accessToken, getAccessCookieOptions());
+  res.cookie("refreshToken", result.refreshToken, getRefreshCookieOptions());
 
   res.status(200).json(
-    new ApiResponse(200, { accessToken, refreshToken: newRefreshToken }, "Token refreshed successfully")
+    new ApiResponse(200, result, "Token refreshed successfully")
   );
+});
+
+const getWorkspaces = asyncHandler(async (req: AuthRequest, res: Response) => {
+  const result = await authService.getWorkspaceSummary(req.user!.id);
+
+  res.status(200).json(new ApiResponse(200, result, "Workspaces fetched"));
 });
 
 const logout = asyncHandler(async (req: AuthRequest, res: Response) => {
@@ -132,6 +131,7 @@ export {
   addContact,
   updatePassword,
   refreshToken,
+  getWorkspaces,
   logout,
   forgotPasswordRequest,
   resetPassword,

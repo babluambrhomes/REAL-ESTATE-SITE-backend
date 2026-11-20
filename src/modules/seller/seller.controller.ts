@@ -1,7 +1,12 @@
 import { Response } from "express";
 import { ApiError, ApiResponse, asyncHandler } from "../../utils";
 import { AuthRequest } from "../../types";
-import { BecomeSellerInput, UpdateSellerInput } from "./seller.validation";
+import {
+  BecomeSellerInput,
+  UpdateSellerInput,
+  SellerOnboardingFieldsInput,
+  listPublicSellersQuerySchema,
+} from "./seller.validation";
 import * as sellerService from "./seller.service";
 
 
@@ -24,6 +29,38 @@ const getCategories = asyncHandler(async (req: AuthRequest, res: Response) => {
   const categories = await sellerService.getCategories(page, limit);
   res.status(200).json(new ApiResponse(200, categories));
 });
+
+const getOnboardingFields = asyncHandler(
+  async (req: AuthRequest, res: Response) => {
+    const { sellerType } = (
+      req as unknown as { validatedQuery: SellerOnboardingFieldsInput }
+    ).validatedQuery;
+
+    const result = await sellerService.getSellerOnboardingFields(
+      req.user!.id,
+      sellerType
+    );
+
+    res
+      .status(200)
+      .json(new ApiResponse(200, result, "Seller onboarding metadata fetched"));
+  }
+);
+
+const listPublicSellers = asyncHandler(
+  async (req: AuthRequest, res: Response) => {
+    const parsed = listPublicSellersQuerySchema.safeParse(req.query ?? {});
+    if (!parsed.success) {
+      throw new ApiError(
+        400,
+        parsed.error.issues[0]?.message ?? "Invalid query"
+      );
+    }
+
+    const result = await sellerService.listPublicSellers(parsed.data);
+    res.status(200).json(new ApiResponse(200, result));
+  }
+);
 
 const getMyProfile = asyncHandler(async (req: AuthRequest, res: Response) => {
   const profile = await sellerService.getMySeller(req.user!.id);
@@ -70,6 +107,8 @@ const listPublicFaqs = asyncHandler(async (req: AuthRequest, res: Response) => {
 export {
   becomeSeller,
   getCategories,
+  getOnboardingFields,
+  listPublicSellers,
   getMyProfile,
   updateMyProfile,
   updateMySlug,

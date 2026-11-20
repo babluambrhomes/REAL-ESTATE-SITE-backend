@@ -1,0 +1,16 @@
+info:
+  name: Admin List Happy Customers
+  type: http
+  seq: 2
+
+http:
+  method: GET
+  url: "{{base_url}}api/v1/happy-customers/admin?page=1&limit=10"
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false
