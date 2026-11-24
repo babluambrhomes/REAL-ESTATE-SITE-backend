@@ -47,23 +47,6 @@ import { welcomeTemplate } from "../../emails/templates/welcome";
 import { passwordResetLinkTemplate } from "../../emails/templates/password-reset";
 import { firebaseAuth } from "../../config/firebase";
 
-const SELLER_WORKSPACE_PERMISSIONS = [
-  "sellerProfile:read",
-  "sellerProfile:update",
-  "property:create",
-  "property:read",
-  "property:update",
-  "property:delete",
-  "property:publish",
-  "lead:read",
-  "lead:update",
-  "siteVisit:read",
-  "siteVisit:update",
-  "buyerQuestion:read",
-  "buyerQuestion:answer",
-  "video:upload",
-];
-
 const canUseSellerProfile = (status: SellerStatus): boolean =>
   status !== SellerStatus.SUSPENDED && status !== SellerStatus.DELETED;
 
@@ -81,12 +64,21 @@ const getWorkspaceSummary = async (userId: string): Promise<WorkspaceSummary> =>
       },
       memberships: {
         where: {
-          scope: MemberScope.ORGANIZATION,
           status: MemberStatus.ACTIVE,
-          contextId: { not: null },
-          organization: { is: { status: OrganizationStatus.ACTIVE } },
+          OR: [
+            {
+              scope: MemberScope.INDIVIDUAL,
+              contextId: null,
+            },
+            {
+              scope: MemberScope.ORGANIZATION,
+              contextId: { not: null },
+              organization: { is: { status: OrganizationStatus.ACTIVE } },
+            },
+          ],
         },
         select: {
+          scope: true,
           organization: {
             select: {
               id: true,
@@ -127,11 +119,20 @@ const getWorkspaceSummary = async (userId: string): Promise<WorkspaceSummary> =>
 
   let sellerWorkspace: Workspace | null = null;
   const sellerProfile = user.sellerProfile;
+  const individualMembership = user.memberships.find(
+    (m) => m.scope === MemberScope.INDIVIDUAL
+  );
   if (sellerProfile && canUseSellerProfile(sellerProfile.sellerStatus)) {
     const fullName = [user.person?.firstName, user.person?.lastName]
       .filter(Boolean)
       .join(" ")
       .trim();
+
+    const permissions = individualMembership
+      ? individualMembership.role.rolePermissions
+          .filter((rp) => rp.permission.scope === PermissionScope.INDIVIDUAL)
+          .map((rp) => `${rp.permission.resource}:${rp.permission.action}`)
+      : [];
 
     sellerWorkspace = {
       id: sellerProfile.id,
@@ -139,14 +140,22 @@ const getWorkspaceSummary = async (userId: string): Promise<WorkspaceSummary> =>
       label: fullName || "My Seller Account",
       organizationId: null,
       sellerId: sellerProfile.id,
-      roles: [],
-      permissions: [...SELLER_WORKSPACE_PERMISSIONS],
+      roles: individualMembership
+        ? [
+            {
+              id: individualMembership.role.id,
+              name: individualMembership.role.roleName,
+            },
+          ]
+        : [],
+      permissions: [...new Set(permissions)],
       verificationStatus: sellerProfile.verificationStatus,
     };
   }
 
   const orgWorkspaces = new Map<string, Workspace>();
   for (const membership of user.memberships) {
+    if (membership.scope !== MemberScope.ORGANIZATION) continue;
     const organization = membership.organization;
     const sellerProfile = organization?.sellerProfile;
     if (!organization || !sellerProfile) continue;

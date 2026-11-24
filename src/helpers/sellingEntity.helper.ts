@@ -1,6 +1,15 @@
 import prisma from "../config/prisma";
 import { ApiError } from "../utils";
 import { OrganizationStatus } from "../generated/prisma/enums";
+import { PermissionScope, RoleScope } from "../generated/prisma/enums";
+import type { Prisma, PrismaClient } from "../generated/prisma/client";
+import {
+  INDIVIDUAL_ROLE_NAME,
+  INDIVIDUAL_PERMISSION_KEYS,
+  type PermissionDef,
+} from "../seed/permissions.catalog";
+type RbacClient = Prisma.TransactionClient | PrismaClient;
+
 
 /**
  * Which of the two public selling entities a user already holds.
@@ -127,3 +136,59 @@ export const assertCanCreateOrganization = async (
     );
   }
 };
+
+
+export async function ensureIndividualSellerRole(
+  client: RbacClient,
+  createdByUserId: string
+): Promise<string> {
+  const wanted = new Set(INDIVIDUAL_PERMISSION_KEYS);
+  const permissions = await client.permission.findMany({
+    where: { scope: PermissionScope.INDIVIDUAL },
+    select: { id: true, resource: true, action: true },
+  });
+
+  const matched = permissions.filter((p) =>
+    wanted.has(`${p.resource}:${p.action}`)
+  );
+
+  if (matched.length !== wanted.size) {
+    const missing = [...wanted].filter(
+      (key) => !matched.some((p) => `${p.resource}:${p.action}` === key)
+    );
+    throw new Error(
+      `Cannot ensure role "${INDIVIDUAL_ROLE_NAME}": ${missing.length} permission(s) missing from the database: ${missing.join(", ")}. Run the permission seed first.`
+    );
+  }
+
+  const saved = await client.role.upsert({
+    where: {
+      scope_roleName: {
+        scope: RoleScope.INDIVIDUAL,
+        roleName: INDIVIDUAL_ROLE_NAME,
+      },
+    },
+    create: {
+      scope: RoleScope.INDIVIDUAL,
+      contextId: null,
+      roleName: INDIVIDUAL_ROLE_NAME,
+      description: "Personal seller account with its own public profile",
+      isSystemRole: true,
+      isDefault: false,
+      createdBy: createdByUserId,
+    },
+    update: {
+      description: "Personal seller account with its own public profile",
+      isSystemRole: true,
+    },
+    select: { id: true },
+  });
+
+  await client.rolePermission.deleteMany({ where: { roleId: saved.id } });
+  await client.rolePermission.createMany({
+    data: matched.map((p) => ({ roleId: saved.id, permissionId: p.id })),
+    skipDuplicates: true,
+  });
+
+  return saved.id;
+}

@@ -6,6 +6,7 @@ import { MemberScope, MemberStatus, PermissionScope } from "../generated/prisma/
 import {
   PLATFORM_PERMISSION_KEYS,
   ORGANIZATION_PERMISSION_KEYS,
+  INDIVIDUAL_PERMISSION_KEYS,
 } from "../seed/permissions.catalog";
 
 /**
@@ -27,7 +28,7 @@ import {
  * The fix is to make scope a required argument rather than something
  * inferred from the user's memberships. The route declares which scope it is
  * guarding, and the membership query is narrowed to exactly that scope —
- * PLATFORM, or ORGANIZATION within the org this request names.
+ * PLATFORM, INDIVIDUAL, or ORGANIZATION within the org this request names.
  *
  * Note there is deliberately no wildcard/superuser bypass. A Super Admin
  * satisfies platform guards the honest way: its role holds every PLATFORM
@@ -39,6 +40,7 @@ import {
 const SCOPE_KEY_SETS: Record<PermissionScope, Set<string>> = {
   [PermissionScope.PLATFORM]: PLATFORM_PERMISSION_KEYS,
   [PermissionScope.ORGANIZATION]: ORGANIZATION_PERMISSION_KEYS,
+  [PermissionScope.INDIVIDUAL]: INDIVIDUAL_PERMISSION_KEYS,
 };
 
 /**
@@ -114,6 +116,8 @@ const loadScopedMemberships = async (
       status: MemberStatus.ACTIVE,
       ...(scope === PermissionScope.ORGANIZATION
         ? { scope: MemberScope.ORGANIZATION, contextId: organizationId }
+        : scope === PermissionScope.INDIVIDUAL
+        ? { scope: MemberScope.INDIVIDUAL, contextId: null }
         : { scope: MemberScope.PLATFORM, contextId: null }),
     },
     select: {
@@ -149,6 +153,92 @@ const loadScopedMemberships = async (
  * caller meant is exactly the mistake that leads to writing into the wrong
  * company.
  */
+const assertPermissionGrants = async (
+  userId: string,
+  scope: PermissionScope,
+  organizationId: string | null,
+  permissionKeys: string[]
+): Promise<void> => {
+  const memberships = await loadScopedMemberships(
+    userId,
+    scope,
+    organizationId
+  );
+
+  if (memberships.length === 0) {
+    const message =
+      scope === PermissionScope.ORGANIZATION
+        ? `You are not an active member of organization ${organizationId}`
+        : scope === PermissionScope.INDIVIDUAL
+        ? "You are not an active individual seller"
+        : "You do not have an active platform membership";
+    throw new ApiError(403, message);
+  }
+
+  // Union across the user's memberships in this scope only. A user can
+  // hold several roles in one org and the grants add up.
+  const granted = new Set<string>();
+  for (const membership of memberships) {
+    for (const rp of membership.role.rolePermissions) {
+      // Scope is re-checked on the permission itself: role_permissions
+      // has no scope column, so a mis-seeded role could otherwise grant a
+      // PLATFORM permission through an ORGANIZATION role.
+      if (rp.permission.scope !== scope) continue;
+      granted.add(permissionCode(rp.permission.resource, rp.permission.action));
+    }
+  }
+
+  if (!permissionKeys.some((key) => granted.has(key))) {
+    throw new ApiError(
+      403,
+      `Required permission: ${permissionKeys.join(" or ")}`
+    );
+  }
+};
+
+const assertOrgPermission = async (
+  userId: string,
+  organizationId: string,
+  permissionKeys: string[]
+): Promise<void> => {
+  for (const key of permissionKeys) {
+    if (!ORGANIZATION_PERMISSION_KEYS.has(key)) {
+      throw new ApiError(
+        500,
+        `Unknown ORGANIZATION permission "${key}" — add it to the permission catalogue or fix the route guard`
+      );
+    }
+  }
+
+  await assertPermissionGrants(
+    userId,
+    PermissionScope.ORGANIZATION,
+    organizationId,
+    permissionKeys
+  );
+};
+
+const assertIndividualPermission = async (
+  userId: string,
+  permissionKeys: string[]
+): Promise<void> => {
+  for (const key of permissionKeys) {
+    if (!INDIVIDUAL_PERMISSION_KEYS.has(key)) {
+      throw new ApiError(
+        500,
+        `Unknown INDIVIDUAL permission "${key}" — add it to the permission catalogue or fix the route guard`
+      );
+    }
+  }
+
+  await assertPermissionGrants(
+    userId,
+    PermissionScope.INDIVIDUAL,
+    null,
+    permissionKeys
+  );
+};
+
 const checkPermission =
   (scope: PermissionScope, ...permissionKeys: string[]) =>
   async (
@@ -179,42 +269,12 @@ const checkPermission =
           ? resolveOrganizationIdForRequest(req)
           : null;
 
-      const memberships = await loadScopedMemberships(
+      await assertPermissionGrants(
         req.user.id,
         scope,
-        organizationId
+        organizationId,
+        permissionKeys
       );
-
-      if (memberships.length === 0) {
-        throw new ApiError(
-          403,
-          scope === PermissionScope.ORGANIZATION
-            ? `You are not an active member of organization ${organizationId}`
-            : "You do not have an active platform membership"
-        );
-      }
-
-      // Union across the user's memberships in this scope only. A user can
-      // hold several roles in one org and the grants add up.
-      const granted = new Set<string>();
-      for (const membership of memberships) {
-        for (const rp of membership.role.rolePermissions) {
-          // Scope is re-checked on the permission itself: role_permissions
-          // has no scope column, so a mis-seeded role could otherwise grant a
-          // PLATFORM permission through an ORGANIZATION role.
-          if (rp.permission.scope !== scope) continue;
-          granted.add(permissionCode(rp.permission.resource, rp.permission.action));
-        }
-      }
-
-      const hasPermission = permissionKeys.some((key) => granted.has(key));
-
-      if (!hasPermission) {
-        throw new ApiError(
-          403,
-          `Required permission: ${permissionKeys.join(" or ")}`
-        );
-      }
 
       next();
     } catch (error) {
@@ -282,4 +342,11 @@ const checkRole =
     }
   };
 
-export { checkPermission, requirePermission, checkRole, resolveOrganizationIdForRequest };
+export {
+  checkPermission,
+  requirePermission,
+  checkRole,
+  resolveOrganizationIdForRequest,
+  assertOrgPermission,
+  assertIndividualPermission,
+};

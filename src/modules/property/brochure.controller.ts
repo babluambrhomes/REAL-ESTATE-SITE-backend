@@ -9,12 +9,11 @@ const getBrochure = asyncHandler(async (req: AuthRequest, res: Response) => {
     String(req.params.variantId)
   );
 
-  // --- CLOUDINARY (new) ---
-  if ("cloudinaryUrl" in result) {
-    res.redirect(result.cloudinaryUrl!);
+  if ("url" in result) {
+    res.redirect(result.url);
     return;
   }
-  // --- LOCAL (old) -- keep for reference ---
+
   res.setHeader("Content-Type", "application/pdf");
   res.setHeader("Content-Disposition", `attachment; filename="${result.filename}"`);
   res.sendFile(result.absPath);

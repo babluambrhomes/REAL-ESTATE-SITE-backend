@@ -15,6 +15,7 @@ import {
 import {
   protect,
   checkIndividualSeller,
+  checkSellerPermission,
   parseQuery,
   validate,
   upload,
@@ -49,11 +50,14 @@ router.post("/become-seller", protect, validate(becomeSellerSchema), becomeSelle
  * seller" — and worse, it would be ambiguous about whether they were about to
  * edit the company's public page.
  */
-router.get("/me", protect, checkIndividualSeller, getMyProfile);
-router.put("/me", protect, checkIndividualSeller, validate(updateSellerSchema), updateMyProfile);
-router.patch("/me/slug", protect, checkIndividualSeller, validate(updateSlugSchema), updateMySlug);
-router.put("/me/logo", protect, checkIndividualSeller, upload.single("logo"), updateLogo);
-router.put("/me/cover", protect, checkIndividualSeller, upload.single("cover"), updateCover);
+const canReadSellerProfile = checkSellerPermission("sellerProfile:read");
+const canUpdateSellerProfile = checkSellerPermission("sellerProfile:update");
+
+router.get("/me", protect, checkIndividualSeller, canReadSellerProfile, getMyProfile);
+router.put("/me", protect, checkIndividualSeller, canUpdateSellerProfile, validate(updateSellerSchema), updateMyProfile);
+router.patch("/me/slug", protect, checkIndividualSeller, canUpdateSellerProfile, validate(updateSlugSchema), updateMySlug);
+router.put("/me/logo", protect, checkIndividualSeller, canUpdateSellerProfile, upload.single("logo"), updateLogo);
+router.put("/me/cover", protect, checkIndividualSeller, canUpdateSellerProfile, upload.single("cover"), updateCover);
 
 // Public: seller ke FAQ list (FAQ section lazy-load ke liye)
 router.get("/:slug/faqs", listPublicFaqs);

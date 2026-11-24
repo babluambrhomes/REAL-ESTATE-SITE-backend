@@ -5,7 +5,12 @@ import { ApiError } from "../../utils";
 import { getDocRequirements, isDocAllowedFor } from "../../config/sellerKyc";
 import { DocumentUploadInput } from "./kyc.validation";
 import { resolvePrivatePath } from "../../config/storage";
-import { uploadFile, deleteCloudinaryFile, isCloudinaryUrl } from "../../helpers/cloudinary.helper";
+import {
+  uploadLocalFile,
+  deleteStoredFile,
+  resolvePrivateStoredUrl,
+  isHttpUrl,
+} from "../../helpers";
 import { SellerType, VerificationStatus } from "../../generated/prisma/enums";
 import { SellerContext } from "../../types";
 
@@ -30,6 +35,13 @@ const getDocOwner = (ctx: SellerContext): DocOwner =>
 /** Filter matching every document owned by this selling entity. */
 const docsWhereFor = (ctx: SellerContext) => getDocOwner(ctx);
 
+const withResolvedFileUrl = async <T extends { fileUrl: string }>(
+  document: T
+): Promise<T> => ({
+  ...document,
+  fileUrl: (await resolvePrivateStoredUrl(document.fileUrl)) ?? document.fileUrl,
+});
+
 const uploadDocument = async (
   ctx: SellerContext,
   userId: string,
@@ -49,24 +61,20 @@ const uploadDocument = async (
 
   const owner = getDocOwner(ctx);
 
-  // --- CLOUDINARY (new) ---
-  const uploaded = await uploadFile(file.path, {
-    folder: `${process.env.CLOUDINARY_FOLDER || "real-estate"}/kyc/${userId}`,
-    resourceType: "auto",
-  });
-  const fileUrl = uploaded.url;
+  const uploaded = await uploadLocalFile(
+    file.path,
+    `kyc/${userId}`,
+    file.mimetype || "application/octet-stream",
+    "PRIVATE"
+  );
+  const fileUrl = uploaded.key;
 
   const existing = await prisma.sellerVerificationDocument.findFirst({
     where: { ...owner, docType: data.docType },
   });
 
   if (existing?.status === VerificationStatus.VERIFIED) {
-    // --- CLOUDINARY (new) ---
-    if (isCloudinaryUrl(fileUrl)) {
-      await deleteCloudinaryFile(fileUrl, "auto");
-    }
-    // --- LOCAL (old) -- keep for reference ---
-    // await fs.unlink(file.path).catch(() => {});
+    await deleteStoredFile(fileUrl);
     throw new ApiError(409, "Document already verified. Cannot re-upload.");
   }
 
@@ -110,15 +118,10 @@ const uploadDocument = async (
         });
 
   if (existing) {
-    // --- CLOUDINARY (new) ---
-    if (isCloudinaryUrl(existing.fileUrl)) {
-      await deleteCloudinaryFile(existing.fileUrl, "auto");
-    }
-    // --- LOCAL (old) -- keep for reference ---
-    // await fs.unlink(resolvePrivatePath(existing.fileUrl)).catch(() => {});
+    await deleteStoredFile(existing.fileUrl);
   }
 
-  return document;
+  return withResolvedFileUrl(document);
 };
 
 /**
@@ -158,7 +161,15 @@ const getDocuments = async (ctx: SellerContext) => {
     };
   });
 
-  return { sellerType: ctx.sellerType, documents, submissionStatus };
+  const resolvedDocuments = await Promise.all(
+    documents.map(withResolvedFileUrl)
+  );
+
+  return {
+    sellerType: ctx.sellerType,
+    documents: resolvedDocuments,
+    submissionStatus,
+  };
 };
 
 const deleteDocument = async (ctx: SellerContext, docId: string) => {
@@ -176,12 +187,7 @@ const deleteDocument = async (ctx: SellerContext, docId: string) => {
 
   await prisma.sellerVerificationDocument.delete({ where: { id: document.id } });
 
-  // --- CLOUDINARY (new) ---
-  if (isCloudinaryUrl(document.fileUrl)) {
-    await deleteCloudinaryFile(document.fileUrl, "auto");
-  }
-  // --- LOCAL (old) -- keep for reference ---
-  // await fs.unlink(resolvePrivatePath(document.fileUrl)).catch(() => {});
+  await deleteStoredFile(document.fileUrl);
 
   return { message: "Document deleted" };
 };
@@ -195,12 +201,13 @@ const getDocumentFile = async (ctx: SellerContext, docId: string) => {
     throw new ApiError(404, "Document not found");
   }
 
-  // --- CLOUDINARY (new) ---
-  if (isCloudinaryUrl(document.fileUrl)) {
-    return { cloudinaryUrl: document.fileUrl };
+  const url = await resolvePrivateStoredUrl(document.fileUrl);
+  if (url) return { url };
+
+  if (isHttpUrl(document.fileUrl)) {
+    throw new ApiError(410, "Legacy document link is no longer available");
   }
 
-  // --- LOCAL (old) -- keep for reference ---
   const absPath = resolvePrivatePath(document.fileUrl);
   try {
     await fs.access(absPath);

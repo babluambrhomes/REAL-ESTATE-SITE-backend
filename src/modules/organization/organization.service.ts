@@ -35,6 +35,8 @@ import {
   ListMembersQueryInput,
   UpdateMemberInput,
   InviteMemberInput,
+  CreateRoleInput,
+  UpdateRoleInput,
 } from "./organization.validation";
 
 /**
@@ -45,7 +47,7 @@ import {
  * thin INSERT — it has to produce a coherent set of rows:
  *
  *   1. the Organization
- *   2. its four system roles (Owner, Admin, Agent, Staff) wired to permissions
+ *   2. its Owner role wired to permissions
  *   3. the creator's OWNER membership
  *   4. the organization's single public SellerProfile (user_id NULL)
  *
@@ -120,12 +122,11 @@ const loadOrgPermissionIndex = async (): Promise<
 };
 
 /**
- * Creates the four system roles for a new organization.
+ * Creates the Owner system role for a new organization.
  *
  * Roles are per-organization rows in the same table as platform roles
  * (context_id = org id), so a brokerage can define "Junior Agent" without
- * affecting anyone else. The bundles themselves are shared, from the
- * permission catalogue.
+ * affecting anyone else. Extra roles are created explicitly after onboarding.
  */
 const createSystemRoles = async (
   tx: Prisma.TransactionClient,
@@ -165,9 +166,7 @@ const createSystemRoles = async (
         roleName,
         description: bundle.description,
         isSystemRole: true,
-        // Agent is the default so an invite sent without a role does not
-        // accidentally hand out Owner or Admin.
-        isDefault: roleName === "Agent",
+        isDefault: false,
         createdBy: createdByUserId,
       },
       select: { id: true },
@@ -504,36 +503,191 @@ const listMembers = async (
  * matrix from one request, and so an operator can see exactly why a teammate
  * can or cannot do something.
  */
+const roleDetailsSelect = {
+  ...roleSelect,
+  _count: { select: { members: true, rolePermissions: true } },
+  rolePermissions: {
+    select: {
+      permission: {
+        select: { resource: true, action: true, displayName: true },
+      },
+    },
+  },
+} as const;
+
+type RoleDetails = Prisma.RoleGetPayload<{ select: typeof roleDetailsSelect }>;
+
+const presentRole = (role: RoleDetails) => ({
+  id: role.id,
+  roleName: role.roleName,
+  description: role.description,
+  isSystemRole: role.isSystemRole,
+  isDefault: role.isDefault,
+  memberCount: role._count.members,
+  permissionCount: role._count.rolePermissions,
+  permissions: role.rolePermissions.map((rp) => ({
+    key: `${rp.permission.resource}:${rp.permission.action}`,
+    displayName: rp.permission.displayName,
+  })),
+});
+
 const listRoles = async (orgId: string) => {
   const roles = await prisma.role.findMany({
     where: { scope: RoleScope.ORGANIZATION, contextId: orgId },
-    select: {
-      ...roleSelect,
-      _count: { select: { members: true, rolePermissions: true } },
-      rolePermissions: {
-        select: {
-          permission: {
-            select: { resource: true, action: true, displayName: true },
-          },
-        },
-      },
-    },
+    select: roleDetailsSelect,
     orderBy: { roleName: "asc" },
   });
 
-  return roles.map((role) => ({
-    id: role.id,
-    roleName: role.roleName,
-    description: role.description,
-    isSystemRole: role.isSystemRole,
-    isDefault: role.isDefault,
-    memberCount: role._count.members,
-    permissionCount: role._count.rolePermissions,
-    permissions: role.rolePermissions.map((rp) => ({
-      key: `${rp.permission.resource}:${rp.permission.action}`,
-      displayName: rp.permission.displayName,
-    })),
-  }));
+  return roles.map(presentRole);
+};
+
+const resolveRolePermissionIds = async (keys: string[]): Promise<string[]> => {
+  const index = await loadOrgPermissionIndex();
+  const ids: string[] = [];
+  const missing: string[] = [];
+
+  for (const key of new Set(keys)) {
+    const match = index.get(key);
+    if (match) ids.push(match.id);
+    else missing.push(key);
+  }
+
+  if (missing.length > 0) {
+    throw new ApiError(
+      503,
+      `Permissions missing from database (${missing.join(", ")}). Run the RBAC seed first: npm run prisma:seed`
+    );
+  }
+
+  return ids;
+};
+
+const getEditableOrgRole = async (orgId: string, roleId: string) => {
+  const role = await prisma.role.findFirst({
+    where: { id: roleId, scope: RoleScope.ORGANIZATION, contextId: orgId },
+  });
+
+  if (!role) throw new ApiError(404, "Role not found in this organization");
+  if (role.isSystemRole) {
+    throw new ApiError(403, "System roles cannot be modified");
+  }
+
+  return role;
+};
+
+const assertRoleNameAvailable = async (
+  orgId: string,
+  roleName: string,
+  excludeRoleId?: string
+): Promise<void> => {
+  const existing = await prisma.role.findFirst({
+    where: {
+      scope: RoleScope.ORGANIZATION,
+      contextId: orgId,
+      roleName,
+      ...(excludeRoleId ? { id: { not: excludeRoleId } } : {}),
+    },
+    select: { id: true },
+  });
+
+  if (existing) throw new ApiError(409, `Role "${roleName}" already exists`);
+};
+
+const getRoleDetails = async (roleId: string) => {
+  const role = await prisma.role.findUnique({
+    where: { id: roleId },
+    select: roleDetailsSelect,
+  });
+
+  if (!role) throw new ApiError(404, "Role not found");
+  return presentRole(role);
+};
+
+const createRole = async (
+  orgId: string,
+  userId: string,
+  data: CreateRoleInput
+) => {
+  await assertRoleNameAvailable(orgId, data.roleName);
+  const permissionIds = await resolveRolePermissionIds(data.permissions);
+
+  const role = await prisma.role.create({
+    data: {
+      scope: RoleScope.ORGANIZATION,
+      contextId: orgId,
+      roleName: data.roleName,
+      description: data.description,
+      isSystemRole: false,
+      isDefault: false,
+      createdBy: userId,
+      rolePermissions: {
+        create: permissionIds.map((permissionId) => ({ permissionId })),
+      },
+    },
+    select: { id: true },
+  });
+
+  return getRoleDetails(role.id);
+};
+
+const updateRole = async (
+  orgId: string,
+  roleId: string,
+  data: UpdateRoleInput
+) => {
+  const role = await getEditableOrgRole(orgId, roleId);
+
+  if (data.roleName) {
+    await assertRoleNameAvailable(orgId, data.roleName, roleId);
+  }
+
+  const permissionIds = data.permissions
+    ? await resolveRolePermissionIds(data.permissions)
+    : null;
+
+  await prisma.$transaction(async (tx) => {
+    await tx.role.update({
+      where: { id: roleId },
+      data: {
+        ...(data.roleName ? { roleName: data.roleName } : {}),
+        ...(data.description !== undefined
+          ? { description: data.description }
+          : {}),
+      },
+    });
+
+    if (permissionIds) {
+      await tx.rolePermission.deleteMany({ where: { roleId } });
+      await tx.rolePermission.createMany({
+        data: permissionIds.map((permissionId) => ({ roleId, permissionId })),
+      });
+    }
+  });
+
+  return getRoleDetails(role.id);
+};
+
+const deleteRole = async (orgId: string, roleId: string) => {
+  const role = await getEditableOrgRole(orgId, roleId);
+
+  const [members, invitations] = await Promise.all([
+    prisma.member.count({ where: { roleId } }),
+    prisma.invitation.count({ where: { roleId } }),
+  ]);
+
+  if (members > 0 || invitations > 0) {
+    throw new ApiError(
+      409,
+      `Role is still in use by ${members} member(s) and ${invitations} invitation(s)`
+    );
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.rolePermission.deleteMany({ where: { roleId } });
+    await tx.role.delete({ where: { id: roleId } });
+  });
+
+  return { id: role.id, roleName: role.roleName };
 };
 
 /**
@@ -722,31 +876,16 @@ const resolveInviteRole = async (
   roleId?: string,
   roleName?: string
 ) => {
-  if (roleId || roleName) {
-    const role = await resolveOrgRole(orgId, roleId, roleName);
-    if (role.roleName === OWNER_ROLE_NAME) {
-      throw new ApiError(403, "The Owner role cannot be granted by invitation");
-    }
-    return role;
+  if (!roleId && !roleName) {
+    throw new ApiError(400, "Select a role for this invitation");
   }
 
-  const fallback = await prisma.role.findFirst({
-    where: {
-      scope: RoleScope.ORGANIZATION,
-      contextId: orgId,
-      isDefault: true,
-    },
-    select: roleSelect,
-  });
-
-  if (!fallback) {
-    throw new ApiError(
-      500,
-      "This organization has no default role. Specify roleId or roleName."
-    );
+  const role = await resolveOrgRole(orgId, roleId, roleName);
+  if (role.roleName === OWNER_ROLE_NAME) {
+    throw new ApiError(403, "The Owner role cannot be granted by invitation");
   }
 
-  return fallback;
+  return role;
 };
 
 /**
@@ -1082,6 +1221,9 @@ export {
   updateOrganization,
   listMembers,
   listRoles,
+  createRole,
+  updateRole,
+  deleteRole,
   updateMember,
   removeMember,
   inviteMember,

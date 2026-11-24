@@ -8,6 +8,8 @@ import {
   UpdateMemberInput,
   InviteMemberInput,
   AcceptInvitationInput,
+  CreateRoleInput,
+  UpdateRoleInput,
 } from "./organization.validation";
 import * as organizationService from "./organization.service";
 
@@ -104,6 +106,32 @@ const listRoles = asyncHandler(async (req: AuthRequest, res: Response) => {
   res.status(200).json(new ApiResponse(200, roles));
 });
 
+const createRole = asyncHandler(async (req: AuthRequest, res: Response) => {
+  const role = await organizationService.createRole(
+    requireOrgParam(req),
+    requireUserId(req),
+    req.body as CreateRoleInput
+  );
+  res.status(201).json(new ApiResponse(201, role, "Role created"));
+});
+
+const updateRole = asyncHandler(async (req: AuthRequest, res: Response) => {
+  const role = await organizationService.updateRole(
+    requireOrgParam(req),
+    String(req.params.roleId),
+    req.body as UpdateRoleInput
+  );
+  res.status(200).json(new ApiResponse(200, role, "Role updated"));
+});
+
+const deleteRole = asyncHandler(async (req: AuthRequest, res: Response) => {
+  const role = await organizationService.deleteRole(
+    requireOrgParam(req),
+    String(req.params.roleId)
+  );
+  res.status(200).json(new ApiResponse(200, role, "Role deleted"));
+});
+
 const inviteMember = asyncHandler(async (req: AuthRequest, res: Response) => {
   const invitation = await organizationService.inviteMember(
     requireOrgParam(req),
@@ -170,6 +198,9 @@ export {
   updateMember,
   removeMember,
   listRoles,
+  createRole,
+  updateRole,
+  deleteRole,
   inviteMember,
   listInvitations,
   cancelInvitation,

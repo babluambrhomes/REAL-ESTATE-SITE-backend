@@ -6,6 +6,9 @@ import {
   updateOrganization,
   listMembers,
   listRoles,
+  createRole,
+  updateRole,
+  deleteRole,
   updateMember,
   removeMember,
   inviteMember,
@@ -30,6 +33,8 @@ import {
   updateMemberSchema,
   inviteMemberSchema,
   acceptInvitationSchema,
+  createRoleSchema,
+  updateRoleSchema,
 } from "./organization.validation";
 
 const router = Router();
@@ -96,6 +101,32 @@ router.get(
   checkOrgMembership,
   requirePermission(PermissionScope.ORGANIZATION, "role:read"),
   listRoles
+);
+
+router.post(
+  "/:orgId/roles",
+  protect,
+  checkOrgMembership,
+  requirePermission(PermissionScope.ORGANIZATION, "role:manage"),
+  validate(createRoleSchema),
+  createRole
+);
+
+router.patch(
+  "/:orgId/roles/:roleId",
+  protect,
+  checkOrgMembership,
+  requirePermission(PermissionScope.ORGANIZATION, "role:manage"),
+  validate(updateRoleSchema),
+  updateRole
+);
+
+router.delete(
+  "/:orgId/roles/:roleId",
+  protect,
+  checkOrgMembership,
+  requirePermission(PermissionScope.ORGANIZATION, "role:manage"),
+  deleteRole
 );
 
 // --- Members ----------------------------------------------------------------

@@ -9,6 +9,7 @@ import {
 import {
   protect,
   checkSeller,
+  checkSellerPermission,
   validate,
   uploadDocument as uploadDocumentMiddleware,
 } from "../../middlewares";
@@ -56,10 +57,12 @@ const cleanupUploadOnError = (
   next();
 };
 
-// GET routes have no body to wait for, so context resolution can run first.
-router.get("/documents", checkSeller, getDocuments);
-router.get("/documents/:docId/file", checkSeller, getDocumentFile);
-router.delete("/documents/:docId", checkSeller, deleteDocument);
+const canReadKyc = checkSellerPermission("kyc:read");
+const canSubmitKyc = checkSellerPermission("kyc:submit");
+
+router.get("/documents", checkSeller, canReadKyc, getDocuments);
+router.get("/documents/:docId/file", checkSeller, canReadKyc, getDocumentFile);
+router.delete("/documents/:docId", checkSeller, canSubmitKyc, deleteDocument);
 
 /**
  * multer runs BEFORE checkSeller here, and that ordering is load-bearing.
@@ -78,6 +81,7 @@ router.post(
   uploadDocumentMiddleware.single("document"),
   cleanupUploadOnError,
   checkSeller,
+  canSubmitKyc,
   validate(documentUploadSchema),
   uploadDocument
 );

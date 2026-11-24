@@ -16,6 +16,7 @@ import {
   protect,
   checkSeller,
   checkSellerVerified,
+  checkSellerPermission,
   validate,
   parseQuery,
   buyerQuestionRateLimit,
@@ -52,12 +53,16 @@ const seller = Router();
 seller.use(protect);
 seller.use(checkSeller);
 
-seller.get("/", parseQuery(listBuyerQuestionsQuerySchema), listSellerQuestions);
-seller.get("/stats", getSellerStats);
-seller.get("/:id", validateId, getSellerQuestion);
-seller.patch("/:id/answer", checkSellerVerified, validateId, validate(answerBuyerQuestionSchema), answerSellerQuestion);
-seller.patch("/:id/status", checkSellerVerified, validateId, validate(updateBuyerQuestionStatusSchema), updateSellerQuestionStatus);
-seller.delete("/:id", checkSellerVerified, validateId, deleteSellerQuestion);
+const canReadQuestion = checkSellerPermission("buyerQuestion:read");
+const canAnswerQuestion = checkSellerPermission("buyerQuestion:answer");
+const canDeleteQuestion = checkSellerPermission("buyerQuestion:delete");
+
+seller.get("/", canReadQuestion, parseQuery(listBuyerQuestionsQuerySchema), listSellerQuestions);
+seller.get("/stats", canReadQuestion, getSellerStats);
+seller.get("/:id", canReadQuestion, validateId, getSellerQuestion);
+seller.patch("/:id/answer", checkSellerVerified, canAnswerQuestion, validateId, validate(answerBuyerQuestionSchema), answerSellerQuestion);
+seller.patch("/:id/status", checkSellerVerified, canAnswerQuestion, validateId, validate(updateBuyerQuestionStatusSchema), updateSellerQuestionStatus);
+seller.delete("/:id", checkSellerVerified, canDeleteQuestion, validateId, deleteSellerQuestion);
 
 router.use("/seller", seller);
 

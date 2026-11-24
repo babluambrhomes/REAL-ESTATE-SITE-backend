@@ -1,11 +1,16 @@
 import slugify from "slugify";
 import path from "path";
-import fs from "fs/promises";
 import prisma from "../../config/prisma";
 import { ApiError } from "../../utils";
-import { getPaginationParams, buildPagination, isUniqueViolation, isRecordNotFound } from "../../helpers";
+import {
+  getPaginationParams,
+  buildPagination,
+  isUniqueViolation,
+  isRecordNotFound,
+  uploadLocalFile,
+  deleteStoredFile,
+} from "../../helpers";
 import { processImage } from "../../workers/image/imageWorker.pool";
-import { uploadFile, deleteCloudinaryFile, isCloudinaryUrl } from "../../helpers/cloudinary.helper";
 import {
   CreateCategoryInput,
   UpdateCategoryInput,
@@ -211,30 +216,18 @@ const updateCategoryImage = async (
     throw new ApiError(500, result.error || "Image processing failed");
   }
 
-  // --- CLOUDINARY (new) ---
-  const uploaded = await uploadFile(result.outputs[0], {
-    folder: `${process.env.CLOUDINARY_FOLDER || "real-estate"}/categories`,
-    resourceType: "image",
-  });
-  const url = uploaded.url;
-
-  // Purane local/cloudinary image ko delete karo
-  if (category.imageUrl && isCloudinaryUrl(category.imageUrl)) {
-    await deleteCloudinaryFile(category.imageUrl);
+  const uploaded = await uploadLocalFile(
+    result.outputs[0],
+    "categories",
+    "image/webp"
+  );
+  if (!uploaded.url) {
+    throw new ApiError(500, "Public image URL is missing");
   }
 
-  // --- LOCAL (old) -- keep for reference ---
-  // const relPath = path
-  //   .relative(parsed.dir, result.outputs[0])
-  //   .split(path.sep)
-  //   .join("/");
-  // const url = `/uploads/${relPath}`;
+  const url = uploaded.url;
 
-  // if (category.imageUrl?.startsWith("/uploads/")) {
-  //   await fs
-  //     .unlink(path.join(process.cwd(), category.imageUrl))
-  //     .catch(() => {});
-  // }
+  await deleteStoredFile(category.imageUrl);
 
   return prisma.sellerCategory.update({
     where: { id },

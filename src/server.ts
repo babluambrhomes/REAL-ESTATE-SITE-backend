@@ -13,6 +13,7 @@ import { initSocket } from "./config/socket";
 import { assertStorageEnv } from "./config/s3";
 import { errorHandler } from "./middlewares";
 import authRouter from "./modules/auth/auth.route";
+import dashboardRouter from "./modules/dashboard/dashboard.route";
 import userRouter from "./modules/user/user.route";
 import sellerRouter from "./modules/seller/seller.route";
 import leadInquiryRouter from "./modules/leadInquiry/leadInquiry.route";
@@ -48,8 +49,12 @@ initSocket(server);
 
 
 app.use(
-  cors({
-    origin: process.env.CLIENT_URL || "http://localhost:3000",
+ cors({
+    origin: [
+      // process.env.CLIENT_URL ,
+      "http://localhost:3000",
+      "http://localhost:3001",
+    ],
     credentials: true,
   })
 );
@@ -68,6 +73,7 @@ app.use(cookieParser());
 app.use("/uploads", express.static(path.join(__dirname, "..", "uploads")));
 
 app.use("/api/v1/auth", authRouter);
+app.use("/api/v1/dashboard", dashboardRouter);
 app.use("/api/v1/users", userRouter);
 app.use("/api/v1/lead-inquiries", leadInquiryRouter);
 app.use("/api/v1/sellers", sellerRouter);

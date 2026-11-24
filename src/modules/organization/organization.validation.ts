@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ORGANIZATION_PERMISSION_KEYS } from "../../seed/permissions.catalog";
 
 /**
  * The public seller profile fields an organization can set on its own public
@@ -44,7 +45,7 @@ const orgBusinessFields = {
  *
  * There is no sellerType field and no nested organization object — this
  * endpoint is only ever about a company. The company's public seller
- * profile, its four system roles and the creator's OWNER membership are all
+ * profile, its Owner role and the creator's OWNER membership are all
  * created server-side in one transaction; the client cannot choose to skip
  * them, which is what previously allowed an organization to exist with no
  * public profile at all.
@@ -108,14 +109,18 @@ export const updateMemberSchema = z
  * (convenient for scripts). Either way the service resolves it against this
  * organization only.
  */
-export const inviteMemberSchema = z.object({
-  email: z.string().email("Enter a valid email").trim().toLowerCase(),
-  phone: z.string().min(7).max(15).trim().optional(),
-  roleId: z.string().uuid("Invalid role").optional(),
-  roleName: z.string().trim().min(1).max(100).optional(),
-  /** Defaults to the organization's default role when neither is given. */
-  expiresInHours: z.number().int().min(1).max(720).optional(),
-});
+export const inviteMemberSchema = z
+  .object({
+    email: z.string().email("Enter a valid email").trim().toLowerCase(),
+    phone: z.string().min(7).max(15).trim().optional(),
+    roleId: z.string().uuid("Invalid role").optional(),
+    roleName: z.string().trim().min(1).max(100).optional(),
+    expiresInHours: z.number().int().min(1).max(720).optional(),
+  })
+  .refine((data) => Boolean(data.roleId || data.roleName), {
+    message: "Select a role for this invitation",
+    path: ["roleId"],
+  });
 
 /**
  * Accepting an invitation.
@@ -127,9 +132,45 @@ export const acceptInvitationSchema = z.object({
   token: z.string().min(16, "Invitation token is required").trim(),
 });
 
+const rolePermissionKeys = z
+  .array(
+    z.string().refine((key) => ORGANIZATION_PERMISSION_KEYS.has(key), {
+      message: "Unknown organization permission",
+    })
+  )
+  .min(1, "A role must grant at least one permission")
+  .max(ORGANIZATION_PERMISSION_KEYS.size, "Unknown organization permission");
+
+const roleNameField = z
+  .string()
+  .min(2, "Role name must be at least 2 characters")
+  .max(100, "Role name must be at most 100 characters")
+  .trim()
+  .refine((name) => name.toLowerCase() !== "owner", {
+    message: "Owner is a reserved role name",
+  });
+
+export const createRoleSchema = z.object({
+  roleName: roleNameField,
+  description: z.string().max(500).trim().optional(),
+  permissions: rolePermissionKeys,
+});
+
+export const updateRoleSchema = z
+  .object({
+    roleName: roleNameField.optional(),
+    description: z.string().max(500).trim().optional(),
+    permissions: rolePermissionKeys.optional(),
+  })
+  .refine((d) => d.roleName !== undefined || d.description !== undefined || d.permissions !== undefined, {
+    message: "Provide at least one field to update",
+  });
+
 export type CreateOrganizationInput = z.infer<typeof createOrganizationSchema>;
 export type UpdateOrganizationInput = z.infer<typeof updateOrganizationSchema>;
 export type ListMembersQueryInput = z.infer<typeof listMembersQuerySchema>;
 export type UpdateMemberInput = z.infer<typeof updateMemberSchema>;
 export type InviteMemberInput = z.infer<typeof inviteMemberSchema>;
 export type AcceptInvitationInput = z.infer<typeof acceptInvitationSchema>;
+export type CreateRoleInput = z.infer<typeof createRoleSchema>;
+export type UpdateRoleInput = z.infer<typeof updateRoleSchema>;

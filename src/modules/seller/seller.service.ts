@@ -24,16 +24,23 @@ import {
   assertCanCreateOrganization,
   readyVideoRelationSelect,
   withVideoUrls,
+  uploadLocalFile,
 } from "../../helpers";
-import { uploadFile } from "../../helpers/cloudinary.helper";
 import {
   SellerType,
   SellerStatus,
   ListingStatus,
   BlogStatus,
   VerificationStatus,
+  MemberScope,
+  MemberStatus,
 } from "../../generated/prisma/enums";
-import { Prisma } from "../../generated/prisma/client";
+
+import type { Prisma } from "../../generated/prisma/client";
+
+import { ensureIndividualSellerRole } from "../../helpers/sellingEntity.helper";
+
+
 
 const sellerProfileSelect = {
   id: true,
@@ -116,6 +123,9 @@ const maskPan = (pan?: string | null): string | null =>
 
 const maskAadhaar = (aadhaar?: string | null): string | null =>
   aadhaar ? `XXXX-XXXX-${aadhaar.slice(-4)}` : null;
+
+
+
 
 
 // becomeSeller, getMySeller, updateSeller, updateSlug, updateMedia, getCategories, getPublicProfile
@@ -281,6 +291,33 @@ const becomeSeller = async (userId: string, data: BecomeSellerInput) => {
         },
         select: { id: true },
       });
+
+      const roleId = await ensureIndividualSellerRole(tx, userId);
+      const membership = await tx.member.findFirst({
+        where: {
+          scope: MemberScope.INDIVIDUAL,
+          contextId: null,
+          userId,
+        },
+        select: { id: true },
+      });
+
+      if (membership) {
+        await tx.member.update({
+          where: { id: membership.id },
+          data: { roleId, status: MemberStatus.ACTIVE },
+        });
+      } else {
+        await tx.member.create({
+          data: {
+            scope: MemberScope.INDIVIDUAL,
+            contextId: null,
+            userId,
+            roleId,
+            status: MemberStatus.ACTIVE,
+          },
+        });
+      }
 
       return withVideoUrls(
         (await tx.sellerProfile.findUnique({
@@ -457,16 +494,16 @@ const updateMedia = async (
     throw new ApiError(500, result.error || "Image processing failed");
   }
 
-  // --- CLOUDINARY (new) ---
-  const uploaded = await uploadFile(result.outputs[0], {
-    folder: `${process.env.CLOUDINARY_FOLDER || "real-estate"}/sellers/${suffix}s`,
-    resourceType: "image",
-  });
-  const url = uploaded.url;
+  const uploaded = await uploadLocalFile(
+    result.outputs[0],
+    `sellers/${suffix}s`,
+    "image/webp"
+  );
+  if (!uploaded.url) {
+    throw new ApiError(500, "Public image URL is missing");
+  }
 
-  // --- LOCAL (old) -- keep for reference ---
-  // const relPath = path.relative(parsed.dir, result.outputs[0]).split(path.sep).join("/");
-  // const url = `/uploads/${relPath}`;
+  const url = uploaded.url;
 
   await prisma.sellerProfile.update({
     where: { id: seller.id },

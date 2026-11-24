@@ -8,6 +8,8 @@ export {
   requirePermission,
   checkRole,
   resolveOrganizationIdForRequest,
+  assertOrgPermission,
+  assertIndividualPermission,
 } from "./rbac.middleware";
 export { checkOrgMembership, checkOrgOwner } from "./organization.middleware";
 export {
@@ -15,6 +17,7 @@ export {
   checkSellerVerified,
   checkIndividualSeller,
   checkOrgMember,
+  checkSellerPermission,
 } from "./seller.middleware";
 export { checkBuyer } from "./buyer.middleware";
 export { checkKycVerified, checkKycSubmitted } from "./kyc.middleware";

@@ -68,23 +68,25 @@ enum OrganizationStatus {
   DEACTIVATED // Owner ne band kiya
 }
 
-// Permission kis context ke liye hai - Organization ya Platform
+// Permission kis context ke liye hai - Organization, Platform ya Individual
 enum PermissionScope {
   ORGANIZATION // Organization ke andar ki permissions
   PLATFORM // Platform level ki permissions
+  INDIVIDUAL // Individual seller ki apni permissions
 }
 
-// Role kis context ke liye hai - Organization ya Platform
-// (Same enum use karenge consistency ke liye)
+// Role kis context ke liye hai - Organization, Platform ya Individual
 enum RoleScope {
   ORGANIZATION // Organization ke andar ka role
   PLATFORM // Platform level ka role
+  INDIVIDUAL // Individual seller ka global role
 }
 
-// Member kis context me hai - Organization ya Platform
+// Member kis context me hai - Organization, Platform ya Individual
 enum MemberScope {
   ORGANIZATION // Organization ka member
   PLATFORM // Platform ka staff
+  INDIVIDUAL // Individual seller ki membership
 }
 
 // Member ka status

@@ -8,10 +8,10 @@
  *
  * Two rules the catalogue enforces structurally:
  *
- *  1. Scope matters. A PLATFORM permission and an ORGANIZATION permission
- *     with the same resource/action are DIFFERENT permissions. `member:invite`
- *     for a company owner must never be satisfied by a platform Super Admin's
- *     membership, and vice versa.
+ *  1. Scope matters. PLATFORM, ORGANIZATION and INDIVIDUAL permissions with
+ *     the same resource/action are DIFFERENT permissions. `property:read` for
+ *     an individual seller must never be satisfied by an organization role,
+ *     and neither may borrow a platform Super Admin's membership.
  *
  *  2. Permissions are referenced as `"<resource>:<<action>"` strings in
  *     route guards. Those strings are the contract between this file and
@@ -21,7 +21,8 @@
  *     catalogue (see scripts/verify-permissions.ts) to catch that.
  */
 
-export type PermissionScope = "PLATFORM" | "ORGANIZATION";
+
+export type PermissionScope = "PLATFORM" | "ORGANIZATION" | "INDIVIDUAL";
 
 export interface PermissionDef {
   scope: PermissionScope;
@@ -92,7 +93,7 @@ const PLATFORM_PERMISSIONS: PermissionDef[] = [
 
 /**
  * Organization-side capabilities. Held by ORGANIZATION-scope roles only
- * (Owner, Admin, Agent, Staff, plus any custom roles an org creates).
+ * (Owner and any custom roles an org creates).
  */
 const ORGANIZATION_PERMISSIONS: PermissionDef[] = [
   // --- Properties ---
@@ -117,6 +118,10 @@ const ORGANIZATION_PERMISSIONS: PermissionDef[] = [
   { scope: "ORGANIZATION", resource: "buyerQuestion", action: "assign", displayName: "Assign Buyer Questions", description: "Assign a question to a team member" },
   { scope: "ORGANIZATION", resource: "buyerQuestion", action: "delete", displayName: "Delete Buyer Questions", description: "Delete a buyer question" },
 
+  { scope: "ORGANIZATION", resource: "sellerProfile", action: "read", displayName: "View Seller Profile", description: "See the seller's own public profile" },
+  { scope: "ORGANIZATION", resource: "sellerProfile", action: "update", displayName: "Edit Seller Profile", description: "Edit the seller's own profile details, logo and cover" },
+  { scope: "ORGANIZATION", resource: "video", action: "upload", displayName: "Upload Videos", description: "Upload and manage videos for listings" },
+
   // --- Team ---
   { scope: "ORGANIZATION", resource: "member", action: "read", displayName: "View Members", description: "See the organization's member list" },
   { scope: "ORGANIZATION", resource: "member", action: "invite", displayName: "Invite Members", description: "Invite new members to the organization" },
@@ -136,9 +141,41 @@ const ORGANIZATION_PERMISSIONS: PermissionDef[] = [
   { scope: "ORGANIZATION", resource: "report", action: "export", displayName: "Export Reports", description: "Export the organization's reports" },
 ];
 
+const INDIVIDUAL_PERMISSIONS: PermissionDef[] = [
+  { scope: "INDIVIDUAL", resource: "property", action: "create", displayName: "Create Properties", description: "Create new property listings for personal account" },
+  { scope: "INDIVIDUAL", resource: "property", action: "read", displayName: "View Properties", description: "View own property listings" },
+  { scope: "INDIVIDUAL", resource: "property", action: "update", displayName: "Edit Properties", description: "Edit own property listings" },
+  { scope: "INDIVIDUAL", resource: "property", action: "delete", displayName: "Delete Properties", description: "Soft delete own property listings" },
+  { scope: "INDIVIDUAL", resource: "property", action: "publish", displayName: "Publish Properties", description: "Publish own property listings" },
+
+  { scope: "INDIVIDUAL", resource: "lead", action: "read", displayName: "View Leads", description: "View leads received on own properties" },
+  { scope: "INDIVIDUAL", resource: "lead", action: "update", displayName: "Update Leads", description: "Update status of own property leads" },
+  { scope: "INDIVIDUAL", resource: "lead", action: "delete", displayName: "Delete Leads", description: "Delete leads received on own properties" },
+  { scope: "INDIVIDUAL", resource: "lead", action: "export", displayName: "Export Leads", description: "Export own property leads" },
+
+  { scope: "INDIVIDUAL", resource: "siteVisit", action: "read", displayName: "View Site Visits", description: "View site visits for own properties" },
+  { scope: "INDIVIDUAL", resource: "siteVisit", action: "update", displayName: "Update Site Visits", description: "Update own property site visit status" },
+  { scope: "INDIVIDUAL", resource: "siteVisit", action: "delete", displayName: "Delete Site Visits", description: "Delete site visits for own properties" },
+
+  { scope: "INDIVIDUAL", resource: "buyerQuestion", action: "read", displayName: "View Buyer Questions", description: "View questions on own property listings" },
+  { scope: "INDIVIDUAL", resource: "buyerQuestion", action: "answer", displayName: "Answer Buyer Questions", description: "Answer questions on own property listings" },
+
+  { scope: "INDIVIDUAL", resource: "sellerProfile", action: "read", displayName: "View Seller Profile", description: "View own seller profile" },
+  { scope: "INDIVIDUAL", resource: "sellerProfile", action: "update", displayName: "Edit Seller Profile", description: "Edit own profile details, photo and cover" },
+
+  { scope: "INDIVIDUAL", resource: "video", action: "upload", displayName: "Upload Videos", description: "Upload videos for own property listings" },
+
+  { scope: "INDIVIDUAL", resource: "kyc", action: "submit", displayName: "Submit KYC", description: "Upload and submit personal seller KYC documents" },
+  { scope: "INDIVIDUAL", resource: "kyc", action: "read", displayName: "View KYC", description: "View own KYC verification status" },
+
+  { scope: "INDIVIDUAL", resource: "report", action: "read", displayName: "View Reports", description: "View personal property and lead reports" },
+  { scope: "INDIVIDUAL", resource: "report", action: "export", displayName: "Export Reports", description: "Export personal property and lead reports" },
+];
+
 export const PERMISSIONS: PermissionDef[] = [
   ...PLATFORM_PERMISSIONS,
   ...ORGANIZATION_PERMISSIONS,
+  ...INDIVIDUAL_PERMISSIONS,
 ];
 
 export const PLATFORM_PERMISSION_KEYS = new Set(
@@ -149,62 +186,32 @@ export const ORGANIZATION_PERMISSION_KEYS = new Set(
   ORGANIZATION_PERMISSIONS.map((p) => `${p.resource}:${p.action}`)
 );
 
+export const INDIVIDUAL_PERMISSION_KEYS = new Set(
+  INDIVIDUAL_PERMISSIONS.map((p) => `${p.resource}:${p.action}`)
+);
+
 /**
- * Default permission bundles for the four system org roles.
+ * Default permission bundles for the system org role.
  *
- * These are applied when an organization is created. The hierarchy is
- * strictly additive — Owner ⊇ Admin ⊇ Agent ⊇ Staff — because in a small
- * brokerage the Owner is usually also the Agent, and the Owner is often
- * answering their own site visits at 11pm.
+ * New organizations receive only the Owner role. Further roles are created
+ * explicitly by the owner through the organization role-management routes.
  */
 export const SYSTEM_ORG_ROLES = {
   Owner: {
     description: "Full control of the organization, including roles and billing",
     permissions: ORGANIZATION_PERMISSIONS,
   },
-  Admin: {
-    description: "Manages day-to-day operations, team and listings",
-    permissions: ORGANIZATION_PERMISSIONS.filter(
-      (p) => !(p.resource === "role" && p.action === "manage")
-    ),
-  },
-  Agent: {
-    description: "Handles listings and buyer enquiries they are assigned",
-    permissions: ORGANIZATION_PERMISSIONS.filter((p) =>
-      [
-        "property:create",
-        "property:read",
-        "property:update",
-        "property:publish",
-        "lead:read",
-        "lead:update",
-        "siteVisit:read",
-        "siteVisit:update",
-        "buyerQuestion:read",
-        "buyerQuestion:answer",
-        "kyc:read",
-      ].includes(`${p.resource}:${p.action}`)
-    ),
-  },
-  Staff: {
-    description: "Read-only access to listings and enquiries",
-    permissions: ORGANIZATION_PERMISSIONS.filter((p) =>
-      [
-        "property:read",
-        "lead:read",
-        "siteVisit:read",
-        "buyerQuestion:read",
-        "kyc:read",
-      ].includes(`${p.resource}:${p.action}`)
-    ),
-  },
 } as const;
 
 export type SystemOrgRoleName = keyof typeof SYSTEM_ORG_ROLES;
 
 /**
- * The Owner role name is stored on the organization and is what
- * `checkOrgOwner` compares against. Kept here so the seed, the org
- * creation service and the middleware cannot drift apart.
+ * The Owner role name anchors organization ownership through
+ * Organization.createdBy. Kept here so the seed, org creation and middleware
+ * cannot drift apart.
  */
 export const OWNER_ROLE_NAME = "Owner";
+
+export const INDIVIDUAL_ROLE_NAME = "Individual Seller";
+
+export const PLATFORM_ROLE_NAME = "Platform Admin";

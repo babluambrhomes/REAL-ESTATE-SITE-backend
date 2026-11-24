@@ -1,5 +1,12 @@
 import { Router } from "express";
-import { parseQuery, protect, uploadRateLimit, validate } from "../../middlewares";
+import {
+  checkSeller,
+  checkSellerPermission,
+  parseQuery,
+  protect,
+  uploadRateLimit,
+  validate,
+} from "../../middlewares";
 import {
   cancelVideoById,
   deleteVideoById,
@@ -17,11 +24,15 @@ import {
 
 const router = Router();
 
+const canUploadVideo = checkSellerPermission("video:upload");
+
 router.post(
   "/presign",
   protect,
   uploadRateLimit,
   validate(videoPresignSchema),
+  checkSeller,
+  canUploadVideo,
   presignVideo
 );
 

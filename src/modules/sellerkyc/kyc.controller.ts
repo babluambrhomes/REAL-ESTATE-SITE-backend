@@ -49,13 +49,11 @@ const getDocumentFile = asyncHandler(async (req: AuthRequest, res: Response) => 
     requireKycContext(req),
     String(req.params.docId)
   );
-  // --- CLOUDINARY (new) ---
-  if ("cloudinaryUrl" in result) {
-    res.status(200).json(new ApiResponse(200, { url: result.cloudinaryUrl! }));
+  if ("url" in result) {
+    res.status(200).json(new ApiResponse(200, { url: result.url }));
     return;
   }
-  // --- LOCAL (old) -- keep for reference ---
-  // res.redirect(result.cloudinaryUrl!);
+
   res.sendFile(result.absPath);
 });
 

@@ -7,7 +7,6 @@ import {
 } from "./property.select";
 
 import path from "path";
-import fs from "fs/promises";
 import slugify from "slugify";
 import prisma from "../../config/prisma";
 import { ApiError } from "../../utils";
@@ -23,9 +22,10 @@ import {
   withVideoUrls,
   deleteVideosForEntity,
   deleteVideosForVariant,
+  uploadLocalFile,
+  deleteStoredFile,
 } from "../../helpers";
 import { processImage } from "../../workers/image/imageWorker.pool";
-import { uploadFile, deleteCloudinaryFile, isCloudinaryUrl } from "../../helpers/cloudinary.helper";
 import {
   PropertyStatus,
   ListingStatus,
@@ -138,19 +138,16 @@ const processPropertyImages = async (files: Express.Multer.File[]) => {
       throw new ApiError(500, result.error || "Image processing failed");
     }
 
-    // --- CLOUDINARY (new) ---
-    const uploaded = await uploadFile(result.outputs[0], {
-      folder: `${process.env.CLOUDINARY_FOLDER || "real-estate"}/properties/images`,
-      resourceType: "image",
-    });
-    urls.push(uploaded.url);
+    const uploaded = await uploadLocalFile(
+      result.outputs[0],
+      "properties/images",
+      "image/webp"
+    );
+    if (!uploaded.url) {
+      throw new ApiError(500, "Public image URL is missing");
+    }
 
-    // --- LOCAL (old) -- keep for reference ---
-    // const relPath = path
-    //   .relative(parsed.dir, result.outputs[0])
-    //   .split(path.sep)
-    //   .join("/");
-    // urls.push(`/uploads/${relPath}`);
+    urls.push(uploaded.url);
   }
 
   return urls;
@@ -670,15 +667,7 @@ const removeImage = async (ctx: SellerContext, propertyId: string, url: string) 
   const updated = current.filter((img) => img.url !== url);
 
   if (current.length !== updated.length) {
-    // --- CLOUDINARY (new) ---
-    if (isCloudinaryUrl(url)) {
-      await deleteCloudinaryFile(url);
-    }
-
-    // --- LOCAL (old) -- keep for reference ---
-    // if (url.startsWith("/uploads/")) {
-    //   await fs.unlink(path.join(process.cwd(), url)).catch(() => {});
-    // }
+    await deleteStoredFile(url);
   }
 
   return withVideoUrls(

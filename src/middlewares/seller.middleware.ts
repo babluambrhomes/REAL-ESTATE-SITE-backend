@@ -1,6 +1,8 @@
 ﻿import { Response, NextFunction } from "express";
 import { ApiError } from "../utils";
 import { AuthRequest, SellerContext } from "../types";
+import { SellerType } from "../generated/prisma/enums";
+import { INDIVIDUAL_PERMISSION_KEYS } from "../seed/permissions.catalog";
 import {
   resolveSellerContext,
   resolveOrgContext,
@@ -8,6 +10,10 @@ import {
   resolveRequestedOrgId,
   assertSellerVerified,
 } from "../helpers";
+import {
+  assertOrgPermission,
+  assertIndividualPermission,
+} from "./rbac.middleware";
 
 const requireAuth = (req: AuthRequest): string => {
   if (!req.user) {
@@ -124,11 +130,58 @@ const checkOrgMember = async (
   }
 };
 
+const checkSellerPermission =
+  (...permissionKeys: string[]) =>
+  async (
+    req: AuthRequest,
+    _res: Response,
+    next: NextFunction
+  ): Promise<void> => {
+    try {
+      const userId = requireAuth(req);
+      const ctx = req.sellerContext;
+
+      if (!ctx) {
+        throw new ApiError(
+          500,
+          "Seller context not resolved — run checkSeller before checkSellerPermission"
+        );
+      }
+
+      if (ctx.organizationId) {
+        await assertOrgPermission(userId, ctx.organizationId, permissionKeys);
+      } else if (ctx.sellerType === SellerType.INDIVIDUAL) {
+        const individualKeys = permissionKeys.filter((key) =>
+          INDIVIDUAL_PERMISSION_KEYS.has(key)
+        );
+
+        if (individualKeys.length === 0) {
+          throw new ApiError(
+            403,
+            `Required permission: ${permissionKeys.join(" or ")}`
+          );
+        }
+
+        await assertIndividualPermission(userId, individualKeys);
+      } else {
+        throw new ApiError(
+          403,
+          "You do not have a selling context that can use this permission"
+        );
+      }
+
+      next();
+    } catch (error) {
+      next(error);
+    }
+  };
+
 export {
   checkSeller,
   checkSellerVerified,
   checkIndividualSeller,
   checkOrgMember,
+  checkSellerPermission,
   resolveSellerContext,
   resolveOrgContext,
   resolveRequestedOrgId,

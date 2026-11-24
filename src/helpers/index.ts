@@ -42,6 +42,12 @@ export {
   deleteFromS3,
   getPublicUrl,
   getPresignedUrl,
+  uploadLocalFile,
+  deleteStoredFile,
+  resolvePublicStoredUrl,
+  resolvePrivateStoredUrl,
+  isS3Key,
+  isHttpUrl,
 } from "./storage.helper";
 
 export {
@@ -89,7 +95,7 @@ export {
   generateReferenceCode,
   generateSlug,
   ensureCategory,
-} from "./sellerIdentity.helper";
+} from "./sellerProfileData.helper";
 
 export {
   RECENT_ACTIVITY_LIMIT,

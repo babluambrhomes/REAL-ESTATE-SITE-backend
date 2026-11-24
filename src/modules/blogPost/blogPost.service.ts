@@ -7,13 +7,10 @@ import {
   buildPagination,
   withUniqueRetry,
   sellerIdentitySelect,
+  uploadLocalFile,
+  deleteStoredFile,
 } from "../../helpers";
 import { processImage } from "../../workers/image/imageWorker.pool";
-import {
-  uploadFile,
-  deleteCloudinaryFile,
-  isCloudinaryUrl,
-} from "../../helpers/cloudinary.helper";
 import { BlogStatus, SellerStatus } from "../../generated/prisma/enums";
 import { Prisma } from "../../generated/prisma/client";
 import { SellerContext } from "../../types";
@@ -311,10 +308,14 @@ const uploadCover = async (
     throw new ApiError(500, result.error || "Image processing failed");
   }
 
-  const uploaded = await uploadFile(result.outputs[0], {
-    folder: `${process.env.CLOUDINARY_FOLDER || "real-estate"}/blog-posts/cover`,
-    resourceType: "image",
-  });
+  const uploaded = await uploadLocalFile(
+    result.outputs[0],
+    "blog-posts/cover",
+    "image/webp"
+  );
+  if (!uploaded.url) {
+    throw new ApiError(500, "Public image URL is missing");
+  }
 
   const updated = await prisma.sellerBlogPost.update({
     where: { id: post.id },
@@ -322,11 +323,7 @@ const uploadCover = async (
     select: postManageSelect,
   });
 
-  // Only after the row points at the new image — if Cloudinary fails here the
-  // database still holds a working URL.
-  if (previous && isCloudinaryUrl(previous)) {
-    await deleteCloudinaryFile(previous);
-  }
+  await deleteStoredFile(previous);
 
   return updated;
 };
@@ -342,9 +339,7 @@ const removeCover = async (ctx: SellerContext, id: string) => {
     select: postManageSelect,
   });
 
-  if (isCloudinaryUrl(post.coverImage)) {
-    await deleteCloudinaryFile(post.coverImage);
-  }
+  await deleteStoredFile(post.coverImage);
 
   return cleared;
 };

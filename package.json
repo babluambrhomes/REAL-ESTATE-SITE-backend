@@ -12,7 +12,8 @@
     "prisma:studio": "prisma studio",
     "prisma:push": "prisma db push",
     "prisma:migrate": "prisma migrate dev",
-    "prisma:seed": "tsx prisma/seed.ts"
+    "prisma:seed": "tsx prisma/seed.ts",
+    "prisma:verify-permissions": "tsx src/seed/verifyPermissions.ts"
   },
   "author": "",
   "license": "ISC",
@@ -27,7 +28,6 @@
     "@prisma/client": "^7.8.0",
     "bcryptjs": "^3.0.3",
     "bullmq": "^5.81.1",
-    "cloudinary": "^2.11.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
