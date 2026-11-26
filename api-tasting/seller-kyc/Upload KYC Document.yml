@@ -14,14 +14,17 @@ http:
     data:
       - name: document
         type: file
-        value: []
+        value:
+          - C:\Users\ADMIN\Downloads\S26BITED32402RE_RED.avif
+        contentType: image/avif
       - name: docType
         type: text
-        value: "PAN_CARD"
+        value: PAN_CARD
       - name: title
         type: text
-        value: "PAN Card"
-  auth: inherit
+        value: PAN Card
+  auth:
+    type: bearer
 
 settings:
   encodeUrl: true

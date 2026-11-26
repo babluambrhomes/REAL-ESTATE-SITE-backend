@@ -2,120 +2,73 @@ name: Local
 variables:
   - name: base_url
     value: http://localhost:5000/
-    enabled: true
-    secret: false
-
+    description: ""
   - name: accessToken
-    value: ''
-    enabled: true
-    secret: false
-
+    value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjQyOTA0MTQzLTg0ZGYtNDQzNi04ZTBjLTIwOTZmYjJkYzNkNCIsImlhdCI6MTc5NTU4OTk4NiwiZXhwIjoxNzk2MTk0Nzg2fQ.QW8sMxsuR88Uuq_Fiz-HU5Riuu3f06dq85g7ZbI0ORc
+    description: ""
   - name: adminAccessToken
-    value: ''
-    enabled: true
-    secret: false
-
+    value: ""
+    description: ""
   - name: resetToken
-    value: ''
-    enabled: true
-    secret: false
-
+    value: ""
+    description: ""
   - name: refreshToken
-    value: ''
-    enabled: true
-    secret: false
-
+    value: ""
+    description: ""
   - name: invitationToken
-    value: ''
-    enabled: true
-    secret: false
-
+    value: ""
+    description: ""
   - name: roleId
-    value: ''
-    enabled: true
-    secret: false
-
+    value: ""
+    description: ""
   - name: userId
-    value: ''
-    enabled: true
-    secret: false
-
+    value: ""
+    description: ""
   - name: sellerId
-    value: ''
-    enabled: true
-    secret: false
-
+    value: ""
+    description: ""
   - name: sellerSlug
     value: rahul-sharma-properties
-    enabled: true
-    secret: false
-
+    description: ""
   - name: organizationId
-    value: ''
-    enabled: true
-    secret: false
-
+    value: ""
+    description: ""
   - name: categoryId
-    value: ''
-    enabled: true
-    secret: false
-
+    value: ""
+    description: ""
   - name: propertyId
-    value: ''
-    enabled: true
-    secret: false
-
+    value: ""
+    description: ""
   - name: propertySlug
     value: luxury-3-bhk-apartment-andheri-west
-    enabled: true
-    secret: false
-
+    description: ""
   - name: variantId
-    value: ''
-    enabled: true
-    secret: false
-
+    value: ""
+    description: ""
   - name: videoId
-    value: ''
-    enabled: true
-    secret: false
-
+    value: ""
+    description: ""
   - name: faqId
-    value: ''
-    enabled: true
-    secret: false
-
+    value: ""
+    description: ""
   - name: questionId
-    value: ''
-    enabled: true
-    secret: false
-
+    value: ""
+    description: ""
   - name: blogPostId
-    value: ''
-    enabled: true
-    secret: false
-
+    value: ""
+    description: ""
   - name: blogSlug
     value: 5-tips-to-buy-your-first-home-in-mumbai
-    enabled: true
-    secret: false
-
+    description: ""
   - name: leadInquiryId
-    value: ''
-    enabled: true
-    secret: false
-
+    value: ""
+    description: ""
   - name: docId
-    value: ''
-    enabled: true
-    secret: false
-
+    value: ""
+    description: ""
   - name: memberId
-    value: ''
-    enabled: true
-    secret: false
-
+    value: ""
+    description: ""
   - name: invitationId
-    value: ''
-    enabled: true
-    secret: false
+    value: ""
+    description: ""

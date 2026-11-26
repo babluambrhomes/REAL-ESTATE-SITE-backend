@@ -9,7 +9,14 @@ import {
   isHttpUrl,
 } from "../../helpers";
 
-const getBrochure = async (propertyId: string, variantId: string) => {
+type BrochureResult =
+  | { url: string }
+  | { absPath: string; filename: string };
+
+const getBrochure = async (
+  propertyId: string,
+  variantId: string
+): Promise<BrochureResult> => {
   const variant = await prisma.propertyVariant.findFirst({
     where: {
       id: variantId,

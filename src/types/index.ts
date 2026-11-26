@@ -20,7 +20,7 @@ export interface Workspace {
   type: WorkspaceType;
   label: string;
   organizationId: string | null;
-  sellerId: string;
+  sellerId: string | null;
   roles: WorkspaceRole[];
   permissions: string[];
   verificationStatus: VerificationStatus;

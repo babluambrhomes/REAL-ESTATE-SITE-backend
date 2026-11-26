@@ -7,18 +7,18 @@
     "build": "npm run prisma:generate && tsc",
     "start": "node dist/server.js",
     "dev": "npm run prisma:generate && nodemon",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit --rootDir .",
     "prisma:generate": "prisma generate",
     "prisma:studio": "prisma studio",
     "prisma:push": "prisma db push",
     "prisma:migrate": "prisma migrate dev",
-    "prisma:seed": "tsx prisma/seed.ts",
-    "prisma:verify-permissions": "tsx src/seed/verifyPermissions.ts"
+    "prisma:seed": "tsx scripts/bootstrap.ts",
+    "prisma:verify-permissions": "tsx scripts/verifyPermissions.ts"
   },
   "author": "",
   "license": "ISC",
   "prisma": {
-    "seed": "tsx prisma/seed.ts"
+    "seed": "tsx scripts/bootstrap.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1160.0",

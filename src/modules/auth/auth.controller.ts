@@ -45,6 +45,8 @@ const login = asyncHandler(async (req: AuthRequest, res: Response) => {
   res.cookie("accessToken", authData.accessToken, getAccessCookieOptions());
   res.cookie("refreshToken", authData.refreshToken, getRefreshCookieOptions());
 
+  console.log('authData',authData)
+
   res.status(200).json(
     new ApiResponse(
       200,

@@ -183,7 +183,7 @@ const getWorkspaceSummary = async (userId: string): Promise<WorkspaceSummary> =>
       type: "ORGANIZATION",
       label: organization.name,
       organizationId: organization.id,
-      sellerId: sellerProfile.id,
+      sellerId: null,
       roles: [{ id: membership.role.id, name: membership.role.roleName }],
       permissions: [...new Set(permissions)],
       verificationStatus: organization.verificationStatus,
@@ -213,6 +213,18 @@ const createAuthResponse = async (
   await storeRefreshToken(user.id, refreshToken, userAgent, ipAddress);
   getLocationFromIP(user.id, ipAddress);
   const { workspaces, activeWorkspaceId } = await getWorkspaceSummary(user.id);
+  const person = await prisma.person.findUnique({
+    where: { userId: user.id },
+    select: {
+      firstName: true,
+      lastName: true,
+      avatarUrl: true,
+      gender: true,
+      city: true,
+      state: true,
+      country: true,
+    },
+  });
 
   return {
     user: {
@@ -224,6 +236,7 @@ const createAuthResponse = async (
       phoneVerified: user.phoneVerified,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
+      person,
     },
     accessToken,
     refreshToken,

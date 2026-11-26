@@ -18,7 +18,7 @@
  *     `checkPermission()`, so renaming one silently breaks authorisation
  *     at runtime rather than at compile time. The seed validates every
  *     permission actually referenced in the codebase against this
- *     catalogue (see scripts/verify-permissions.ts) to catch that.
+ *     catalogue (see scripts/verifyPermissions.ts) to catch that.
  */
 
 
@@ -193,11 +193,12 @@ export const INDIVIDUAL_PERMISSION_KEYS = new Set(
 /**
  * Default permission bundles for the system org role.
  *
- * New organizations receive only the Owner role. Further roles are created
- * explicitly by the owner through the organization role-management routes.
+ * New organizations receive only the organization Owner role. Further roles
+ * are created explicitly by the owner through the organization role-management
+ * routes.
  */
 export const SYSTEM_ORG_ROLES = {
-  Owner: {
+  "Organization Owner": {
     description: "Full control of the organization, including roles and billing",
     permissions: ORGANIZATION_PERMISSIONS,
   },
@@ -206,12 +207,14 @@ export const SYSTEM_ORG_ROLES = {
 export type SystemOrgRoleName = keyof typeof SYSTEM_ORG_ROLES;
 
 /**
- * The Owner role name anchors organization ownership through
- * Organization.createdBy. Kept here so the seed, org creation and middleware
- * cannot drift apart.
+ * Role names are anchors used by role creation, lookup and ownership checks.
+ * Ye naam SYSTEM_ORG_ROLES ke key se exactly match hona chahiye —
+ * createSystemRoles usi key se role banata hai aur createOrganization is
+ * constant se us role ko dhoondta hai. Dono alag ho gaye to org create fail
+ * hota hai ("Owner role could not be created").
  */
-export const OWNER_ROLE_NAME = "Owner";
+export const OWNER_ROLE_NAME = "Organization Owner";
 
-export const INDIVIDUAL_ROLE_NAME = "Individual Seller";
+export const INDIVIDUAL_ROLE_NAME = "Individual";
 
-export const PLATFORM_ROLE_NAME = "Platform Admin";
+export const PLATFORM_ROLE_NAME = "Platform Owner";

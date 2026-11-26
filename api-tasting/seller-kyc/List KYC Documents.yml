@@ -9,6 +9,8 @@ http:
   headers:
     - name: x-organization-id
       value: "{{organizationId}}"
+    - name: Authorization
+      value: Bearer     {{accessToken}}
   auth: inherit
 
 settings:
