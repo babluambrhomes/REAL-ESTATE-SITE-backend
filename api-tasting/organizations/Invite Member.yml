@@ -6,16 +6,19 @@ info:
 http:
   method: POST
   url: "{{base_url}}api/v1/organizations/{{organizationId}}/invitations"
+  headers:
+    - name: Authorization
+      value: Bearer {{accessToken}}
   body:
     type: json
     data: |-
       {
           "email":  "priya.verma@example.com",
           "phone":  "9876501234",
-          "roleName":  "Manager",
+          "roleId":  "{{roleId}}",
           "expiresInHours":  72
       }
-  auth: inherit
+  auth: none
 
 settings:
   encodeUrl: true

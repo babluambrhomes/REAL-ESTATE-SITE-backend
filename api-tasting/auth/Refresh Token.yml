@@ -12,6 +12,8 @@ http:
       {
           "refreshToken":  "{{refreshToken}}"
       }
+  auth: none
+
 
 settings:
   encodeUrl: true

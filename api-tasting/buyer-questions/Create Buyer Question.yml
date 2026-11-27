@@ -6,6 +6,9 @@ info:
 http:
   method: POST
   url: "{{base_url}}api/v1/buyer-questions"
+  headers:
+    - name: Authorization
+      value: Bearer {{accessToken}}
   body:
     type: json
     data: |-
@@ -14,7 +17,7 @@ http:
           "propertyId":  "{{propertyId}}",
           "question":  "Is the price negotiable for the 3 BHK apartment?"
       }
-  auth: inherit
+  auth: none
 
 settings:
   encodeUrl: true

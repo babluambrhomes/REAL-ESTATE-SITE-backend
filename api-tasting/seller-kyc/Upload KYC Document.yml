@@ -7,6 +7,8 @@ http:
   method: POST
   url: "{{base_url}}api/v1/sellers/kyc/documents"
   headers:
+    - name: Authorization
+      value: Bearer {{accessToken}}
     - name: x-organization-id
       value: "{{organizationId}}"
   body:
@@ -15,16 +17,15 @@ http:
       - name: document
         type: file
         value:
-          - C:\Users\ADMIN\Downloads\S26BITED32402RE_RED.avif
-        contentType: image/avif
+          - C:/path/to/document.pdf
+        contentType: application/pdf
       - name: docType
         type: text
         value: PAN_CARD
       - name: title
         type: text
         value: PAN Card
-  auth:
-    type: bearer
+  auth: none
 
 settings:
   encodeUrl: true

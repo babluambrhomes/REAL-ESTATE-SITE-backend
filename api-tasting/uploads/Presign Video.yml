@@ -6,6 +6,9 @@ info:
 http:
   method: POST
   url: "{{base_url}}api/v1/uploads/video/presign"
+  headers:
+    - name: Authorization
+      value: Bearer {{accessToken}}
   body:
     type: json
     data: |-
@@ -15,7 +18,7 @@ http:
           "length":  30,
           "propertyId":  "{{propertyId}}"
       }
-  auth: inherit
+  auth: none
 
 settings:
   encodeUrl: true

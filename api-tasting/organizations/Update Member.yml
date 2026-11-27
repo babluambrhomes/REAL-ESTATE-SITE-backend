@@ -6,6 +6,9 @@ info:
 http:
   method: PATCH
   url: "{{base_url}}api/v1/organizations/{{organizationId}}/members/{{memberId}}"
+  headers:
+    - name: Authorization
+      value: Bearer {{accessToken}}
   body:
     type: json
     data: |-
@@ -13,7 +16,7 @@ http:
           "roleId":  "{{roleId}}",
           "status":  "ACTIVE"
       }
-  auth: inherit
+  auth: none
 
 settings:
   encodeUrl: true

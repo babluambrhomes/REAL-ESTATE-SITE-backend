@@ -6,6 +6,9 @@ info:
 http:
   method: POST
   url: "{{base_url}}api/v1/auth/private-otp-verify"
+  headers:
+    - name: Authorization
+      value: Bearer {{accessToken}}
   body:
     type: json
     data: |-
@@ -13,7 +16,7 @@ http:
           "code":  "123456",
           "purpose":  "EMAIL_VERIFICATION"
       }
-  auth: inherit
+  auth: none
 
 settings:
   encodeUrl: true

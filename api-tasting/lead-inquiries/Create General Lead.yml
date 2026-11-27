@@ -6,6 +6,9 @@ info:
 http:
   method: POST
   url: "{{base_url}}api/v1/lead-inquiries/general"
+  headers:
+    - name: Authorization
+      value: Bearer {{accessToken}}
   body:
     type: json
     data: |-
@@ -17,7 +20,7 @@ http:
           "phone":  "9812345678",
           "message":  "I am interested in this property. Please call me."
       }
-  auth: inherit
+  auth: none
 
 settings:
   encodeUrl: true

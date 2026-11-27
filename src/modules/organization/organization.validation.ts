@@ -1,5 +1,8 @@
 import { z } from "zod";
-import { ORGANIZATION_PERMISSION_KEYS } from "../../seed/permissions.catalog";
+import {
+  OWNER_ONLY_ORG_PERMISSION_KEYS,
+  ORGANIZATION_PERMISSION_KEYS,
+} from "../../seed/permissions.catalog";
 
 /**
  * The public seller profile fields an organization can set on its own public
@@ -134,9 +137,14 @@ export const acceptInvitationSchema = z.object({
 
 const rolePermissionKeys = z
   .array(
-    z.string().refine((key) => ORGANIZATION_PERMISSION_KEYS.has(key), {
-      message: "Unknown organization permission",
-    })
+    z
+      .string()
+      .refine((key) => ORGANIZATION_PERMISSION_KEYS.has(key), {
+        message: "Unknown organization permission",
+      })
+      .refine((key) => !OWNER_ONLY_ORG_PERMISSION_KEYS.has(key), {
+        message: "Reserved for the organization owner",
+      })
   )
   .min(1, "A role must grant at least one permission")
   .max(ORGANIZATION_PERMISSION_KEYS.size, "Unknown organization permission");

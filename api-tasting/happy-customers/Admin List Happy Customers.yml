@@ -6,7 +6,10 @@ info:
 http:
   method: GET
   url: "{{base_url}}api/v1/happy-customers/admin?page=1&limit=10"
-  auth: inherit
+  headers:
+    - name: Authorization
+      value: Bearer {{adminAccessToken}}
+  auth: none
 
 settings:
   encodeUrl: true

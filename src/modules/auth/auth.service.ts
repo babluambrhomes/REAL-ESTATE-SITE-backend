@@ -130,8 +130,8 @@ const getWorkspaceSummary = async (userId: string): Promise<WorkspaceSummary> =>
 
     const permissions = individualMembership
       ? individualMembership.role.rolePermissions
-          .filter((rp) => rp.permission.scope === PermissionScope.INDIVIDUAL)
-          .map((rp) => `${rp.permission.resource}:${rp.permission.action}`)
+        .filter((rp) => rp.permission.scope === PermissionScope.INDIVIDUAL)
+        .map((rp) => `${rp.permission.resource}:${rp.permission.action}`)
       : [];
 
     sellerWorkspace = {
@@ -142,11 +142,11 @@ const getWorkspaceSummary = async (userId: string): Promise<WorkspaceSummary> =>
       sellerId: sellerProfile.id,
       roles: individualMembership
         ? [
-            {
-              id: individualMembership.role.id,
-              name: individualMembership.role.roleName,
-            },
-          ]
+          {
+            id: individualMembership.role.id,
+            name: individualMembership.role.roleName,
+          },
+        ]
         : [],
       permissions: [...new Set(permissions)],
       verificationStatus: sellerProfile.verificationStatus,
@@ -403,9 +403,20 @@ const register = async (data: RegisterInput, userAgent?: string, ipAddress?: str
       const otp = await createOtp({ userId: existing.id, identifier: phone, purpose: "PHONE_VERIFICATION" as OtpPurpose });
 
       console.log(`OTP for phone ${phone}: ${otp.plainCode}`); // Log the OTP for testing purposes
-      // smsQueue.add("send-phone-otp", { to: phone, message: `Your AmbrHomes verification code is: ${otp.plainCode}. Valid for 10 minutes.` });
+      smsQueue.add("send-phone-otp", { to: phone, message: `Your AmbrHomes verification code is: ${otp.plainCode}. Valid for 10 minutes.` });
 
-      return createAuthResponse(existing, userAgent, ipAddress);
+      return {
+        message: "OTP sent to your phone Number",
+        requiresOtp: true,
+        verificationToken: generateAccessToken(existing.id),
+        status: UserStatus.PENDING,
+        user: {
+          phone,
+          firstName
+        },
+      };
+
+      // return createAuthResponse(existing, userAgent, ipAddress);
     }
 
     const newUser = await createUserWithProfile({
@@ -420,8 +431,21 @@ const register = async (data: RegisterInput, userAgent?: string, ipAddress?: str
     const otp = await createOtp({ userId: newUser.id, identifier: phone, purpose: "PHONE_VERIFICATION" as OtpPurpose });
     smsQueue.add("send-phone-otp", { to: phone, message: `Your AmbrHomes verification code is: ${otp.plainCode}. Valid for 10 minutes.` });
 
-    return createAuthResponse(newUser, userAgent, ipAddress);
+    // return createAuthResponse(newUser, userAgent, ipAddress);
+
+    return {
+      message: "OTP sent to your phone Number",
+      requiresOtp: true,
+      status: UserStatus.PENDING,
+      verificationToken: generateAccessToken(newUser.id),
+      user: {
+        phone,
+        firstName
+      },
+    };
   }
+
+
 
   throw new ApiError(400, "Invalid registration data");
 };
@@ -436,12 +460,12 @@ const login = async (data: LoginInput, userAgent?: string, ipAddress?: string) =
     try {
       // console.log('decoded loaded')
       decoded = await firebaseAuth.verifyIdToken(FbTokenId.trim());
-        //  console.log("decoded data",decoded)
+      //  console.log("decoded data",decoded)
     } catch (error) {
-  // console.error("Firebase verifyIdToken error:", error);
+      // console.error("Firebase verifyIdToken error:", error);
 
-  throw new ApiError(401, "Invalid or expired Google token");
-}
+      throw new ApiError(401, "Invalid or expired Google token");
+    }
 
     const googleEmail = decoded.email;
     if (!googleEmail) throw new ApiError(400, "Email not available from Google account");
@@ -482,7 +506,7 @@ const login = async (data: LoginInput, userAgent?: string, ipAddress?: string) =
     const otp = await createOtp({ userId: user.id, identifier: phone, purpose: "PHONE_VERIFICATION" as OtpPurpose });
 
     console.log(`Your AmbrHomes verification code is: ${otp.plainCode}. Valid for 10 minutes.`)
-    
+
     smsQueue.add("send-phone-otp", { to: phone, message: `Your AmbrHomes verification code is: ${otp.plainCode}. Valid for 10 minutes.` });
 
     return {
@@ -490,7 +514,7 @@ const login = async (data: LoginInput, userAgent?: string, ipAddress?: string) =
       requiresOtp: true,
       verificationToken: generateAccessToken(user.id),
     };
-    
+
   }
 
   throw new ApiError(400, "Invalid login credentials");
@@ -620,7 +644,7 @@ const addContact = async (userId: string, data: AddContactInput) => {
 
     const otp = await createOtp({ userId, identifier: email, purpose: "EMAIL_VERIFICATION" as OtpPurpose });
 
-     console.log('otp.plainCode', otp.plainCode)
+    console.log('otp.plainCode', otp.plainCode)
     const template = otpVerificationTemplate({ code: otp.plainCode, userName: email.split("@")[0] });
     emailQueue.add("send-otp-email", { to: email, subject: template.subject, html: template.html });
   }

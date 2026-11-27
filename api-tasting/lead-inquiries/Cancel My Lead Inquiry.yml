@@ -6,13 +6,16 @@ info:
 http:
   method: PATCH
   url: "{{base_url}}api/v1/lead-inquiries/me/{{leadInquiryId}}/cancel"
+  headers:
+    - name: Authorization
+      value: Bearer {{accessToken}}
   body:
     type: json
     data: |-
       {
           "reason":  "Plans changed."
       }
-  auth: inherit
+  auth: none
 
 settings:
   encodeUrl: true

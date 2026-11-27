@@ -7,6 +7,8 @@ http:
   method: DELETE
   url: "{{base_url}}api/v1/properties/{{propertyId}}/images"
   headers:
+    - name: Authorization
+      value: Bearer {{accessToken}}
     - name: x-organization-id
       value: "{{organizationId}}"
   body:
@@ -15,7 +17,7 @@ http:
       {
           "url":  "https://example.com/property-2.jpg"
       }
-  auth: inherit
+  auth: none
 
 settings:
   encodeUrl: true

@@ -5,7 +5,9 @@ info:
 
 http:
   method: GET
-  url: "{{base_url}}/health"
+  url: "{{base_url}}health"
+  auth: none
+
 
 settings:
   encodeUrl: true

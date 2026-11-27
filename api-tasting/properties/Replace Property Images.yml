@@ -7,6 +7,8 @@ http:
   method: PUT
   url: "{{base_url}}api/v1/properties/{{propertyId}}/images"
   headers:
+    - name: Authorization
+      value: Bearer {{accessToken}}
     - name: x-organization-id
       value: "{{organizationId}}"
   body:
@@ -24,7 +26,7 @@ http:
                          }
                      ]
       }
-  auth: inherit
+  auth: none
 
 settings:
   encodeUrl: true

@@ -6,6 +6,9 @@ info:
 http:
   method: POST
   url: "{{base_url}}api/v1/uploads/pdf"
+  headers:
+    - name: Authorization
+      value: Bearer {{accessToken}}
   body:
     type: multipart-form
     data:
@@ -18,7 +21,7 @@ http:
       - name: visibility
         type: text
         value: "PUBLIC"
-  auth: inherit
+  auth: none
 
 settings:
   encodeUrl: true

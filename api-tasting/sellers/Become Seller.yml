@@ -6,6 +6,9 @@ info:
 http:
   method: POST
   url: "{{base_url}}api/v1/sellers/become-seller"
+  headers:
+    - name: Authorization
+      value: Bearer {{accessToken}}
   body:
     type: json
     data: |-
@@ -39,7 +42,7 @@ http:
           "happyClientsCount":  150,
           "responseTimeMinutes":  30
       }
-  auth: inherit
+  auth: none
 
 settings:
   encodeUrl: true

@@ -6,15 +6,16 @@ info:
 http:
   method: POST
   url: "{{base_url}}api/v1/seller-categories/{{categoryId}}/image"
+  headers:
+    - name: Authorization
+      value: Bearer {{adminAccessToken}}
   body:
     type: multipart-form
     data:
       - name: image
         type: file
         value: []
-  auth:
-    type: bearer
-    token: "{{adminAccessToken}}"
+  auth: none
 
 settings:
   encodeUrl: true

@@ -6,6 +6,9 @@ info:
 http:
   method: POST
   url: "{{base_url}}api/v1/seller-categories"
+  headers:
+    - name: Authorization
+      value: Bearer {{adminAccessToken}}
   body:
     type: json
     data: |-
@@ -16,9 +19,7 @@ http:
           "imageUrl":  "https://example.com/category.jpg",
           "isActive":  true
       }
-  auth:
-    type: bearer
-    token: "{{adminAccessToken}}"
+  auth: none
 
 settings:
   encodeUrl: true

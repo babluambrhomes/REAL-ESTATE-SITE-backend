@@ -6,6 +6,9 @@ info:
 http:
   method: PUT
   url: "{{base_url}}api/v1/users/profile"
+  headers:
+    - name: Authorization
+      value: Bearer {{accessToken}}
   body:
     type: json
     data: |-
@@ -22,7 +25,7 @@ http:
           "latitude":  19.076,
           "longitude":  72.8777
       }
-  auth: inherit
+  auth: none
 
 settings:
   encodeUrl: true

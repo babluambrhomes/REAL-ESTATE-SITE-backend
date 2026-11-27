@@ -7,15 +7,15 @@ http:
   method: PATCH
   url: "{{base_url}}api/v1/sellers/me/slug"
   headers:
-    - name: x-organization-id
-      value: "{{organizationId}}"
+    - name: Authorization
+      value: Bearer {{accessToken}}
   body:
     type: json
     data: |-
       {
           "slug":  "rahul-sharma-properties"
       }
-  auth: inherit
+  auth: none
 
 settings:
   encodeUrl: true

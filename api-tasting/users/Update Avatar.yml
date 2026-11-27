@@ -6,13 +6,16 @@ info:
 http:
   method: PUT
   url: "{{base_url}}api/v1/users/profile/avatar"
+  headers:
+    - name: Authorization
+      value: Bearer {{accessToken}}
   body:
     type: multipart-form
     data:
       - name: avatar
         type: file
         value: []
-  auth: inherit
+  auth: none
 
 settings:
   encodeUrl: true

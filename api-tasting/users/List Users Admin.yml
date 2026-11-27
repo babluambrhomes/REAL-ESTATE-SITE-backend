@@ -6,9 +6,10 @@ info:
 http:
   method: GET
   url: "{{base_url}}api/v1/users?page=1&limit=10"
-  auth:
-    type: bearer
-    token: "{{adminAccessToken}}"
+  headers:
+    - name: Authorization
+      value: Bearer {{adminAccessToken}}
+  auth: none
 
 settings:
   encodeUrl: true

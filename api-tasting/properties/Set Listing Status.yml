@@ -6,15 +6,16 @@ info:
 http:
   method: PATCH
   url: "{{base_url}}api/v1/properties/{{propertyId}}/listing-status"
+  headers:
+    - name: Authorization
+      value: Bearer {{adminAccessToken}}
   body:
     type: json
     data: |-
       {
           "listingStatus":  "PUBLISHED"
       }
-  auth:
-    type: bearer
-    token: "{{adminAccessToken}}"
+  auth: none
 
 settings:
   encodeUrl: true

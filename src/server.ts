@@ -54,6 +54,7 @@ app.use(
       // process.env.CLIENT_URL ,
       "http://localhost:3000",
       "http://localhost:3001",
+      'https://b7pvjf9h-5000.inc1.devtunnels.ms/',
     ],
     credentials: true,
   })

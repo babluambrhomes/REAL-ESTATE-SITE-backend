@@ -44,8 +44,8 @@ const router = Router();
  *
  * Two layers guard every org-scoped route:
  *
- *   checkOrgMembership  — is the caller an ACTIVE member of :orgId, and is
- *                         the organization itself still ACTIVE?
+ *   checkOrgMembership / checkOrgOwner — is the caller an ACTIVE member of
+ *                         :orgId? Owner-only routes tighten this to createdBy.
  *   requirePermission   — does their role actually grant this capability,
  *                         checked within that same organization?
  *
@@ -143,7 +143,7 @@ router.get(
 router.patch(
   "/:orgId/members/:memberId",
   protect,
-  checkOrgMembership,
+  checkOrgOwner,
   requirePermission(PermissionScope.ORGANIZATION, "member:update"),
   validate(updateMemberSchema),
   updateMember
@@ -152,7 +152,7 @@ router.patch(
 router.delete(
   "/:orgId/members/:memberId",
   protect,
-  checkOrgMembership,
+  checkOrgOwner,
   requirePermission(PermissionScope.ORGANIZATION, "member:remove"),
   removeMember
 );
@@ -162,7 +162,7 @@ router.delete(
 router.get(
   "/:orgId/invitations",
   protect,
-  checkOrgMembership,
+  checkOrgOwner,
   orgInviteGuard,
   listInvitations
 );
@@ -170,7 +170,7 @@ router.get(
 router.post(
   "/:orgId/invitations",
   protect,
-  checkOrgMembership,
+  checkOrgOwner,
   orgInviteGuard,
   validate(inviteMemberSchema),
   inviteMember

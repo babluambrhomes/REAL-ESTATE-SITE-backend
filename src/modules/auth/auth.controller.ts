@@ -21,17 +21,13 @@ const register = asyncHandler(async (req: AuthRequest, res: Response) => {
 
   const result = await authService.register(req.body as RegisterInput, userAgent, ipAddress);
 
-  const message = result.user.email
-    ? "OTP sent to your email. Please verify to continue."
-    : "OTP sent to your phone. Please verify to continue.";
-
-  res.status(201).json(new ApiResponse(201, result, message));
+  res.status(201).json(new ApiResponse(201, result));
 });
 
 const login = asyncHandler(async (req: AuthRequest, res: Response) => {
   const userAgent = req.headers["user-agent"];
   const ipAddress = req.ip;
-  
+
 
   const result = await authService.login(req.body as LoginInput, userAgent, ipAddress) as any;
 
@@ -45,7 +41,7 @@ const login = asyncHandler(async (req: AuthRequest, res: Response) => {
   res.cookie("accessToken", authData.accessToken, getAccessCookieOptions());
   res.cookie("refreshToken", authData.refreshToken, getRefreshCookieOptions());
 
-  console.log('authData',authData)
+  // console.log('authData', authData)
 
   res.status(200).json(
     new ApiResponse(
@@ -65,15 +61,15 @@ const privateOtpVerify = asyncHandler(async (req: AuthRequest, res: Response) =>
   const userAgent = req.headers["user-agent"];
   const ipAddress = req.ip;
 
-    const result = await authService.privateOtpVerify(req.user!.id, req.body as ConfirmOtpInput, userAgent, ipAddress) as any;
-    const { message, ...authData } = result;
+  const result = await authService.privateOtpVerify(req.user!.id, req.body as ConfirmOtpInput, userAgent, ipAddress) as any;
+  const { message, ...authData } = result;
 
-    if (authData.accessToken && authData.refreshToken) {
-      res.cookie("accessToken", authData.accessToken, getAccessCookieOptions());
-      res.cookie("refreshToken", authData.refreshToken, getRefreshCookieOptions());
-    }
+  if (authData.accessToken && authData.refreshToken) {
+    res.cookie("accessToken", authData.accessToken, getAccessCookieOptions());
+    res.cookie("refreshToken", authData.refreshToken, getRefreshCookieOptions());
+  }
 
-    res.status(200).json(new ApiResponse(200, authData, message));
+  res.status(200).json(new ApiResponse(200, authData, message));
 });
 
 const refreshToken = asyncHandler(async (req: AuthRequest, res: Response) => {

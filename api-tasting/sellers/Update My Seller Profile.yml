@@ -7,8 +7,8 @@ http:
   method: PUT
   url: "{{base_url}}api/v1/sellers/me"
   headers:
-    - name: x-organization-id
-      value: "{{organizationId}}"
+    - name: Authorization
+      value: Bearer {{accessToken}}
   body:
     type: json
     data: |-
@@ -38,7 +38,7 @@ http:
           "happyClientsCount":  150,
           "responseTimeMinutes":  30
       }
-  auth: inherit
+  auth: none
 
 settings:
   encodeUrl: true

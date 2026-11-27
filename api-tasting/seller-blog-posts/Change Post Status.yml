@@ -7,6 +7,8 @@ http:
   method: PATCH
   url: "{{base_url}}api/v1/sellers/me/blog-posts/{{blogPostId}}/status"
   headers:
+    - name: Authorization
+      value: Bearer {{accessToken}}
     - name: x-organization-id
       value: "{{organizationId}}"
   body:
@@ -15,7 +17,7 @@ http:
       {
           "status":  "PUBLISHED"
       }
-  auth: inherit
+  auth: none
 
 settings:
   encodeUrl: true

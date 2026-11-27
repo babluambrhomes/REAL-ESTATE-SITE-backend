@@ -6,7 +6,10 @@ info:
 http:
   method: GET
   url: "{{base_url}}api/v1/organizations"
-  auth: inherit
+  headers:
+    - name: Authorization
+      value: Bearer {{accessToken}}
+  auth: none
 
 settings:
   encodeUrl: true

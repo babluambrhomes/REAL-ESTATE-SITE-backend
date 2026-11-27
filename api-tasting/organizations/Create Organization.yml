@@ -6,6 +6,9 @@ info:
 http:
   method: POST
   url: "{{base_url}}api/v1/organizations"
+  headers:
+    - name: Authorization
+      value: Bearer {{accessToken}}
   body:
     type: json
     data: |-
@@ -29,7 +32,7 @@ http:
           "country":  "India",
           "pincode":  "400001"
       }
-  auth: inherit
+  auth: none
 
 settings:
   encodeUrl: true

@@ -13,6 +13,8 @@ http:
           "phone":  "9876543210",
           "firstName":  "Rahul"
       }
+  auth: none
+
 
 settings:
   encodeUrl: true

@@ -161,27 +161,36 @@ export async function ensureIndividualSellerRole(
     );
   }
 
-  const saved = await client.role.upsert({
-    where: {
-      scope_roleName: {
-        scope: RoleScope.INDIVIDUAL,
-        roleName: INDIVIDUAL_ROLE_NAME,
-      },
-    },
-    create: {
-      scope: RoleScope.INDIVIDUAL,
-      contextId: null,
-      roleName: INDIVIDUAL_ROLE_NAME,
-      description: "Personal seller account with its own public profile",
-      isSystemRole: true,
-      isDefault: false,
-      createdBy: createdByUserId,
-    },
-    update: {
-      description: "Personal seller account with its own public profile",
-      isSystemRole: true,
-    },
+  const roleWhere = {
+    scope: RoleScope.INDIVIDUAL,
+    contextId: null,
+    roleName: INDIVIDUAL_ROLE_NAME,
+  } as const;
+
+  const existing = await client.role.findFirst({
+    where: roleWhere,
     select: { id: true },
+  });
+
+  const saved =
+    existing ??
+    (await client.role.create({
+      data: {
+        ...roleWhere,
+        description: "Personal seller account with its own public profile",
+        isSystemRole: true,
+        isDefault: false,
+        createdBy: createdByUserId,
+      },
+      select: { id: true },
+    }));
+
+  await client.role.update({
+    where: { id: saved.id },
+    data: {
+      description: "Personal seller account with its own public profile",
+      isSystemRole: true,
+    },
   });
 
   await client.rolePermission.deleteMany({ where: { roleId: saved.id } });

@@ -1,26 +1,3 @@
-/**
- * The permission catalogue.
- *
- * This is the single source of truth for what the system considers a
- * distinct capability. Roles are just bundles of these, so if a capability
- * is not listed here it does not exist — which is a much better failure
- * mode than inventing ad-hoc `resource:action` strings in route files.
- *
- * Two rules the catalogue enforces structurally:
- *
- *  1. Scope matters. PLATFORM, ORGANIZATION and INDIVIDUAL permissions with
- *     the same resource/action are DIFFERENT permissions. `property:read` for
- *     an individual seller must never be satisfied by an organization role,
- *     and neither may borrow a platform Super Admin's membership.
- *
- *  2. Permissions are referenced as `"<resource>:<<action>"` strings in
- *     route guards. Those strings are the contract between this file and
- *     `checkPermission()`, so renaming one silently breaks authorisation
- *     at runtime rather than at compile time. The seed validates every
- *     permission actually referenced in the codebase against this
- *     catalogue (see scripts/verifyPermissions.ts) to catch that.
- */
-
 
 export type PermissionScope = "PLATFORM" | "ORGANIZATION" | "INDIVIDUAL";
 
@@ -32,151 +9,333 @@ export interface PermissionDef {
   description: string;
 }
 
-/**
- * Platform-side capabilities. Held by PLATFORM-scope roles only
- * (Super Admin, Platform Staff, Support Agent).
- */
+const permission = (
+  scope: PermissionScope,
+  resource: string,
+  action: string,
+  displayName: string,
+  description: string
+): PermissionDef => ({
+  scope,
+  resource,
+  action,
+  displayName,
+  description,
+});
+
+/* =========================================================
+   PLATFORM PERMISSIONS
+   Super Admin / Platform Admin / Staff / Support
+========================================================= */
+
 const PLATFORM_PERMISSIONS: PermissionDef[] = [
-  // --- Users ---
-  { scope: "PLATFORM", resource: "user", action: "read", displayName: "View Users", description: "See any user account and its profile" },
-  { scope: "PLATFORM", resource: "user", action: "update", displayName: "Edit Users", description: "Edit another user's account details" },
-  { scope: "PLATFORM", resource: "user", action: "suspend", displayName: "Suspend Users", description: "Suspend or reactivate a user account" },
-  { scope: "PLATFORM", resource: "user", action: "delete", displayName: "Delete Users", description: "Soft delete a user account" },
+  // Dashboard
+  permission("PLATFORM", "dashboard", "read", "View Dashboard", "Access platform dashboard"),
+  permission("PLATFORM", "dashboard", "analytics", "View Dashboard Analytics", "View platform statistics"),
 
-  // --- Sellers ---
-  { scope: "PLATFORM", resource: "seller", action: "read", displayName: "View Sellers", description: "See any seller profile" },
-  { scope: "PLATFORM", resource: "seller", action: "update", displayName: "Edit Sellers", description: "Edit a seller profile" },
-  { scope: "PLATFORM", resource: "seller", action: "verify", displayName: "Verify Sellers", description: "Approve a seller's KYC documents" },
-  { scope: "PLATFORM", resource: "seller", action: "reject", displayName: "Reject Sellers", description: "Reject a seller's KYC documents with a reason" },
-  { scope: "PLATFORM", resource: "seller", action: "suspend", displayName: "Suspend Sellers", description: "Suspend a seller account" },
+  // Users
+  permission("PLATFORM", "user", "read", "View Users", "View all user accounts"),
+  permission("PLATFORM", "user", "create", "Create Users", "Create user accounts"),
+  permission("PLATFORM", "user", "update", "Edit Users", "Update user details"),
+  permission("PLATFORM", "user", "suspend", "Suspend Users", "Suspend or reactivate users"),
+  permission("PLATFORM", "user", "delete", "Delete Users", "Soft delete user accounts"),
+  permission("PLATFORM", "user", "restore", "Restore Users", "Restore deleted users"),
+  permission("PLATFORM", "user", "verify", "Verify Users", "Verify user accounts"),
+  permission("PLATFORM", "user", "export", "Export Users", "Export user data"),
 
-  // --- Organizations ---
-  { scope: "PLATFORM", resource: "organization", action: "read", displayName: "View Organizations", description: "See any organization" },
-  { scope: "PLATFORM", resource: "organization", action: "update", displayName: "Edit Organizations", description: "Edit an organization's business details" },
-  { scope: "PLATFORM", resource: "organization", action: "verify", displayName: "Verify Organizations", description: "Approve a company's KYC documents" },
-  { scope: "PLATFORM", resource: "organization", action: "reject", displayName: "Reject Organizations", description: "Reject a company's KYC documents with a reason" },
-  { scope: "PLATFORM", resource: "organization", action: "suspend", displayName: "Suspend Organizations", description: "Suspend or reactivate an organization" },
+  // Sellers
+  permission("PLATFORM", "seller", "read", "View Sellers", "View all seller profiles"),
+  permission("PLATFORM", "seller", "create", "Create Sellers", "Create seller profiles"),
+  permission("PLATFORM", "seller", "update", "Edit Sellers", "Edit seller profiles"),
+  permission("PLATFORM", "seller", "verify", "Verify Sellers", "Approve seller KYC"),
+  permission("PLATFORM", "seller", "reject", "Reject Sellers", "Reject seller verification"),
+  permission("PLATFORM", "seller", "suspend", "Suspend Sellers", "Suspend seller accounts"),
+  permission("PLATFORM", "seller", "delete", "Delete Sellers", "Soft delete seller profiles"),
+  permission("PLATFORM", "seller", "restore", "Restore Sellers", "Restore seller profiles"),
+  permission("PLATFORM", "seller", "export", "Export Sellers", "Export seller data"),
 
-  // --- Properties ---
-  { scope: "PLATFORM", resource: "property", action: "read", displayName: "View All Properties", description: "See every property including unpublished ones" },
-  { scope: "PLATFORM", resource: "property", action: "update", displayName: "Edit Any Property", description: "Edit a property on a seller's behalf" },
-  { scope: "PLATFORM", resource: "property", action: "verify", displayName: "Verify Properties", description: "Mark a property as verified" },
-  { scope: "PLATFORM", resource: "property", action: "reject", displayName: "Reject Properties", description: "Reject a property listing" },
-  { scope: "PLATFORM", resource: "property", action: "delete", displayName: "Delete Properties", description: "Soft delete any property listing" },
-  { scope: "PLATFORM", resource: "property", action: "feature", displayName: "Feature Properties", description: "Mark a property as featured" },
+  // Organizations
+  permission("PLATFORM", "organization", "read", "View Organizations", "View all organizations"),
+  permission("PLATFORM", "organization", "create", "Create Organizations", "Create organizations"),
+  permission("PLATFORM", "organization", "update", "Edit Organizations", "Edit organization details"),
+  permission("PLATFORM", "organization", "verify", "Verify Organizations", "Approve organization KYC"),
+  permission("PLATFORM", "organization", "reject", "Reject Organizations", "Reject organization verification"),
+  permission("PLATFORM", "organization", "suspend", "Suspend Organizations", "Suspend organizations"),
+  permission("PLATFORM", "organization", "delete", "Delete Organizations", "Soft delete organizations"),
+  permission("PLATFORM", "organization", "restore", "Restore Organizations", "Restore organizations"),
+  permission("PLATFORM", "organization", "export", "Export Organizations", "Export organization data"),
 
-  // --- Enquiries ---
-  { scope: "PLATFORM", resource: "lead", action: "read", displayName: "View All Leads", description: "See leads across all sellers" },
-  { scope: "PLATFORM", resource: "lead", action: "update", displayName: "Update Leads", description: "Change a lead's status" },
-  { scope: "PLATFORM", resource: "lead", action: "delete", displayName: "Delete Leads", description: "Delete a lead" },
-  { scope: "PLATFORM", resource: "siteVisit", action: "read", displayName: "View All Site Visits", description: "See site visits across all sellers" },
-  { scope: "PLATFORM", resource: "siteVisit", action: "update", displayName: "Update Site Visits", description: "Change a site visit's status" },
-  { scope: "PLATFORM", resource: "siteVisit", action: "delete", displayName: "Delete Site Visits", description: "Delete a site visit" },
-  { scope: "PLATFORM", resource: "buyerQuestion", action: "read", displayName: "View All Questions", description: "See buyer questions across all sellers" },
-  { scope: "PLATFORM", resource: "buyerQuestion", action: "answer", displayName: "Answer Any Question", description: "Answer a buyer question" },
-  { scope: "PLATFORM", resource: "buyerQuestion", action: "delete", displayName: "Delete Any Question", description: "Delete a buyer question" },
+  // Properties
+  permission("PLATFORM", "property", "read", "View All Properties", "View all listings including drafts"),
+  permission("PLATFORM", "property", "create", "Create Properties", "Create property listings"),
+  permission("PLATFORM", "property", "update", "Edit Any Property", "Edit any property"),
+  permission("PLATFORM", "property", "verify", "Verify Properties", "Approve property listings"),
+  permission("PLATFORM", "property", "reject", "Reject Properties", "Reject property listings"),
+  permission("PLATFORM", "property", "publish", "Publish Properties", "Publish property listings"),
+  permission("PLATFORM", "property", "unpublish", "Unpublish Properties", "Unpublish property listings"),
+  permission("PLATFORM", "property", "feature", "Feature Properties", "Feature property listings"),
+  permission("PLATFORM", "property", "delete", "Delete Properties", "Soft delete properties"),
+  permission("PLATFORM", "property", "restore", "Restore Properties", "Restore deleted properties"),
+  permission("PLATFORM", "property", "export", "Export Properties", "Export property data"),
 
-  // --- Content & catalogue ---
-  { scope: "PLATFORM", resource: "category", action: "manage", displayName: "Manage Seller Categories", description: "Create, edit and reorder seller categories" },
-  { scope: "PLATFORM", resource: "blogPost", action: "manage", displayName: "Manage Blog Posts", description: "Create, edit and archive blog posts" },
-  { scope: "PLATFORM", resource: "happyCustomer", action: "manage", displayName: "Manage Happy Customers", description: "Create, edit, publish and remove happy customer stories" },
+  // Leads
+  permission("PLATFORM", "lead", "read", "View All Leads", "View leads across all sellers"),
+  permission("PLATFORM", "lead", "create", "Create Leads", "Create leads"),
+  permission("PLATFORM", "lead", "update", "Update Leads", "Update lead details and status"),
+  permission("PLATFORM", "lead", "assign", "Assign Leads", "Assign leads"),
+  permission("PLATFORM", "lead", "delete", "Delete Leads", "Soft delete leads"),
+  permission("PLATFORM", "lead", "restore", "Restore Leads", "Restore deleted leads"),
+  permission("PLATFORM", "lead", "export", "Export Leads", "Export lead data"),
 
-  // --- Platform administration ---
-  { scope: "PLATFORM", resource: "role", action: "manage", displayName: "Manage Platform Roles", description: "Create and edit platform roles and their permissions" },
-  { scope: "PLATFORM", resource: "permission", action: "manage", displayName: "Manage Permissions", description: "Grant and revoke platform permissions" },
-  { scope: "PLATFORM", resource: "invitation", action: "manage", displayName: "Manage Platform Invitations", description: "Invite and manage platform staff" },
-  { scope: "PLATFORM", resource: "settings", action: "manage", displayName: "Manage Platform Settings", description: "Change platform-wide configuration" },
-  { scope: "PLATFORM", resource: "report", action: "read", displayName: "View Reports", description: "View platform analytics and reports" },
-  { scope: "PLATFORM", resource: "report", action: "export", displayName: "Export Reports", description: "Export reports as CSV or PDF" },
-  { scope: "PLATFORM", resource: "auditLog", action: "read", displayName: "View Audit Log", description: "Read the platform audit trail" },
+  // Site Visits
+  permission("PLATFORM", "siteVisit", "read", "View All Site Visits", "View all site visits"),
+  permission("PLATFORM", "siteVisit", "create", "Create Site Visits", "Create site visits"),
+  permission("PLATFORM", "siteVisit", "update", "Update Site Visits", "Update site visits"),
+  permission("PLATFORM", "siteVisit", "assign", "Assign Site Visits", "Assign site visits"),
+  permission("PLATFORM", "siteVisit", "delete", "Delete Site Visits", "Delete site visits"),
+  permission("PLATFORM", "siteVisit", "export", "Export Site Visits", "Export site visit data"),
+
+  // Buyer Questions
+  permission("PLATFORM", "buyerQuestion", "read", "View All Questions", "View all buyer questions"),
+  permission("PLATFORM", "buyerQuestion", "answer", "Answer Questions", "Answer buyer questions"),
+  permission("PLATFORM", "buyerQuestion", "assign", "Assign Questions", "Assign questions"),
+  permission("PLATFORM", "buyerQuestion", "delete", "Delete Questions", "Delete buyer questions"),
+
+  // Reviews and ratings
+  permission("PLATFORM", "review", "read", "View Reviews", "View all reviews"),
+  permission("PLATFORM", "review", "update", "Moderate Reviews", "Moderate reviews"),
+  permission("PLATFORM", "review", "approve", "Approve Reviews", "Approve reviews"),
+  permission("PLATFORM", "review", "reject", "Reject Reviews", "Reject reviews"),
+  permission("PLATFORM", "review", "delete", "Delete Reviews", "Delete reviews"),
+
+  // Media and videos
+  permission("PLATFORM", "media", "read", "View Media", "View uploaded media"),
+  permission("PLATFORM", "media", "delete", "Delete Media", "Delete uploaded media"),
+  permission("PLATFORM", "video", "read", "View Videos", "View uploaded videos"),
+  permission("PLATFORM", "video", "update", "Manage Videos", "Manage platform videos"),
+  permission("PLATFORM", "video", "delete", "Delete Videos", "Delete uploaded videos"),
+
+  // Seller categories
+  permission("PLATFORM", "category", "read", "View Categories", "View seller categories"),
+  permission("PLATFORM", "category", "manage", "Manage Categories", "Create, update and reorder categories"),
+  permission("PLATFORM", "category", "delete", "Delete Categories", "Delete categories"),
+
+  // CMS and content
+  permission("PLATFORM", "blogPost", "read", "View Blog Posts", "View blog posts"),
+  permission("PLATFORM", "blogPost", "manage", "Manage Blog Posts", "Create, edit and publish blogs"),
+  permission("PLATFORM", "blogPost", "delete", "Delete Blog Posts", "Delete blog posts"),
+
+  permission("PLATFORM", "page", "manage", "Manage Pages", "Manage website pages"),
+  permission("PLATFORM", "banner", "manage", "Manage Banners", "Manage website banners"),
+  permission("PLATFORM", "happyCustomer", "manage", "Manage Happy Customers", "Manage customer stories"),
+  permission("PLATFORM", "testimonial", "manage", "Manage Testimonials", "Manage testimonials"),
+  permission("PLATFORM", "faq", "manage", "Manage FAQs", "Manage frequently asked questions"),
+
+  // Payments and subscriptions
+  permission("PLATFORM", "payment", "read", "View Payments", "View platform payments"),
+  permission("PLATFORM", "payment", "manage", "Manage Payments", "Manage payment records"),
+  permission("PLATFORM", "payment", "refund", "Process Refunds", "Process payment refunds"),
+  permission("PLATFORM", "payment", "export", "Export Payments", "Export payment records"),
+
+  permission("PLATFORM", "subscription", "read", "View Subscriptions", "View subscriptions"),
+  permission("PLATFORM", "subscription", "manage", "Manage Subscriptions", "Manage subscription plans"),
+  permission("PLATFORM", "subscription", "cancel", "Cancel Subscriptions", "Cancel subscriptions"),
+
+  // Platform roles and staff
+  permission("PLATFORM", "role", "read", "View Platform Roles", "View platform roles"),
+  permission("PLATFORM", "role", "manage", "Manage Platform Roles", "Create and update platform roles"),
+  permission("PLATFORM", "permission", "read", "View Permissions", "View permission catalogue"),
+  permission("PLATFORM", "permission", "manage", "Manage Permissions", "Manage platform permissions"),
+
+  permission("PLATFORM", "invitation", "read", "View Invitations", "View staff invitations"),
+  permission("PLATFORM", "invitation", "manage", "Manage Invitations", "Invite and manage platform staff"),
+
+  // Reports and analytics
+  permission("PLATFORM", "report", "read", "View Reports", "View platform reports"),
+  permission("PLATFORM", "report", "export", "Export Reports", "Export reports"),
+  permission("PLATFORM", "analytics", "read", "View Analytics", "View platform analytics"),
+
+  // Notifications
+  permission("PLATFORM", "notification", "read", "View Notifications", "View platform notifications"),
+  permission("PLATFORM", "notification", "manage", "Manage Notifications", "Manage notifications"),
+  permission("PLATFORM", "email", "manage", "Manage Emails", "Manage email templates"),
+  permission("PLATFORM", "sms", "manage", "Manage SMS", "Manage SMS templates"),
+
+  // Settings and security
+  permission("PLATFORM", "settings", "read", "View Settings", "View platform settings"),
+  permission("PLATFORM", "settings", "manage", "Manage Settings", "Update platform settings"),
+  permission("PLATFORM", "auditLog", "read", "View Audit Logs", "View audit history"),
+  permission("PLATFORM", "security", "manage", "Manage Security", "Manage platform security settings"),
 ];
 
-/**
- * Organization-side capabilities. Held by ORGANIZATION-scope roles only
- * (Owner and any custom roles an org creates).
- */
+/* =========================================================
+   COMMON SELLER PERMISSIONS
+   ORGANIZATION + INDIVIDUAL
+========================================================= */
+
+const getSellerPermissions = (
+  scope: "ORGANIZATION" | "INDIVIDUAL"
+): PermissionDef[] => [
+  // Dashboard
+  permission(scope, "dashboard", "read", "View Dashboard", "View seller dashboard"),
+  permission(scope, "dashboard", "analytics", "View Analytics", "View seller analytics"),
+
+  // Properties
+  permission(scope, "property", "create", "Create Properties", "Create new property listings"),
+  permission(scope, "property", "read", "View Properties", "View own properties"),
+  permission(scope, "property", "update", "Edit Properties", "Edit property details"),
+  permission(scope, "property", "delete", "Delete Properties", "Soft delete properties"),
+  permission(scope, "property", "publish", "Publish Properties", "Publish property listings"),
+  permission(scope, "property", "unpublish", "Unpublish Properties", "Unpublish property listings"),
+  permission(scope, "property", "restore", "Restore Properties", "Restore deleted properties"),
+  permission(scope, "property", "feature", "Feature Properties", "Request or manage featured listings"),
+  permission(scope, "property", "export", "Export Properties", "Export property data"),
+
+  // Leads
+  permission(scope, "lead", "create", "Create Leads", "Create new leads"),
+  permission(scope, "lead", "read", "View Leads", "View leads received on own properties"),
+  permission(scope, "lead", "update", "Update Leads", "Update lead details and status"),
+  permission(scope, "lead", "delete", "Delete Leads", "Soft delete leads"),
+  permission(scope, "lead", "export", "Export Leads", "Export lead data"),
+
+  // Site Visits
+  permission(scope, "siteVisit", "create", "Create Site Visits", "Schedule site visits"),
+  permission(scope, "siteVisit", "read", "View Site Visits", "View property site visits"),
+  permission(scope, "siteVisit", "update", "Update Site Visits", "Update site visit status"),
+  permission(scope, "siteVisit", "delete", "Delete Site Visits", "Delete site visits"),
+  permission(scope, "siteVisit", "export", "Export Site Visits", "Export site visit data"),
+
+  // Buyer Questions
+  permission(scope, "buyerQuestion", "read", "View Buyer Questions", "View questions on own listings"),
+  permission(scope, "buyerQuestion", "answer", "Answer Buyer Questions", "Answer buyer questions"),
+  permission(scope, "buyerQuestion", "delete", "Delete Buyer Questions", "Delete buyer questions"),
+
+  // Seller profile
+  permission(scope, "sellerProfile", "read", "View Seller Profile", "View own seller profile"),
+  permission(scope, "sellerProfile", "update", "Edit Seller Profile", "Edit profile, photo, logo and cover"),
+  permission(scope, "sellerProfile", "publish", "Publish Seller Profile", "Publish seller profile"),
+
+  // Media and videos
+  permission(scope, "media", "upload", "Upload Media", "Upload property images and documents"),
+  permission(scope, "media", "read", "View Media", "View uploaded media"),
+  permission(scope, "media", "delete", "Delete Media", "Delete own uploaded media"),
+  permission(scope, "video", "upload", "Upload Videos", "Upload property videos"),
+  permission(scope, "video", "read", "View Videos", "View uploaded videos"),
+  permission(scope, "video", "delete", "Delete Videos", "Delete own videos"),
+
+  // KYC
+  permission(scope, "kyc", "update", "Update KYC", "Update verification documents"),
+
+  // Reviews
+  permission(scope, "review", "read", "View Reviews", "View seller reviews"),
+  permission(scope, "review", "reply", "Reply to Reviews", "Reply to customer reviews"),
+
+  // Reports
+  permission(scope, "report", "read", "View Reports", "View property and lead reports"),
+  permission(scope, "report", "export", "Export Reports", "Export seller reports"),
+
+  // Notifications
+  permission(scope, "notification", "read", "View Notifications", "View notifications"),
+  permission(scope, "notification", "update", "Manage Notifications", "Manage notification preferences"),
+
+  // Account settings
+  permission(scope, "settings", "read", "View Settings", "View account settings"),
+  permission(scope, "settings", "update", "Update Settings", "Update account settings"),
+
+  // Enquiry preferences
+  permission(scope, "enquirySettings", "read", "View Enquiry Settings", "View enquiry preferences"),
+  permission(scope, "enquirySettings", "update", "Manage Enquiry Settings", "Manage enquiry preferences"),
+];
+
+/* =========================================================
+   ORGANIZATION PERMISSIONS
+   Common Seller Permissions + Team Management
+========================================================= */
+
 const ORGANIZATION_PERMISSIONS: PermissionDef[] = [
-  // --- Properties ---
-  { scope: "ORGANIZATION", resource: "property", action: "create", displayName: "Create Properties", description: "Add new property listings for the organization" },
-  { scope: "ORGANIZATION", resource: "property", action: "read", displayName: "View Properties", description: "See all of the organization's properties" },
-  { scope: "ORGANIZATION", resource: "property", action: "update", displayName: "Edit Properties", description: "Edit any of the organization's properties" },
-  { scope: "ORGANIZATION", resource: "property", action: "delete", displayName: "Delete Properties", description: "Soft delete any of the organization's properties" },
-  { scope: "ORGANIZATION", resource: "property", action: "publish", displayName: "Publish Properties", description: "Move a property from draft to published" },
+  ...getSellerPermissions("ORGANIZATION"),
 
-  // --- Enquiries ---
-  { scope: "ORGANIZATION", resource: "lead", action: "read", displayName: "View Leads", description: "See leads for the organization's properties" },
-  { scope: "ORGANIZATION", resource: "lead", action: "update", displayName: "Update Leads", description: "Change a lead's status" },
-  { scope: "ORGANIZATION", resource: "lead", action: "assign", displayName: "Assign Leads", description: "Assign a lead to a team member" },
-  { scope: "ORGANIZATION", resource: "lead", action: "delete", displayName: "Delete Leads", description: "Delete a lead" },
-  { scope: "ORGANIZATION", resource: "lead", action: "export", displayName: "Export Leads", description: "Export leads to CSV" },
-  { scope: "ORGANIZATION", resource: "siteVisit", action: "read", displayName: "View Site Visits", description: "See site visits for the organization's properties" },
-  { scope: "ORGANIZATION", resource: "siteVisit", action: "update", displayName: "Update Site Visits", description: "Change a site visit's status" },
-  { scope: "ORGANIZATION", resource: "siteVisit", action: "assign", displayName: "Assign Site Visits", description: "Assign a site visit to a team member" },
-  { scope: "ORGANIZATION", resource: "siteVisit", action: "delete", displayName: "Delete Site Visits", description: "Delete a site visit" },
-  { scope: "ORGANIZATION", resource: "buyerQuestion", action: "read", displayName: "View Buyer Questions", description: "See questions asked about the organization's properties" },
-  { scope: "ORGANIZATION", resource: "buyerQuestion", action: "answer", displayName: "Answer Buyer Questions", description: "Answer buyer questions" },
-  { scope: "ORGANIZATION", resource: "buyerQuestion", action: "assign", displayName: "Assign Buyer Questions", description: "Assign a question to a team member" },
-  { scope: "ORGANIZATION", resource: "buyerQuestion", action: "delete", displayName: "Delete Buyer Questions", description: "Delete a buyer question" },
+  // Organization details
+  permission("ORGANIZATION", "organization", "read", "View Organization", "View organization details"),
+  permission("ORGANIZATION", "organization", "update", "Edit Organization", "Edit organization details"),
+  permission("ORGANIZATION", "organization", "delete", "Delete Organization", "Request organization deletion"),
 
-  { scope: "ORGANIZATION", resource: "sellerProfile", action: "read", displayName: "View Seller Profile", description: "See the seller's own public profile" },
-  { scope: "ORGANIZATION", resource: "sellerProfile", action: "update", displayName: "Edit Seller Profile", description: "Edit the seller's own profile details, logo and cover" },
-  { scope: "ORGANIZATION", resource: "video", action: "upload", displayName: "Upload Videos", description: "Upload and manage videos for listings" },
+  // Team Management - Organization only
+  permission("ORGANIZATION", "member", "read", "View Members", "View organization team members"),
+  permission("ORGANIZATION", "member", "invite", "Invite Members", "Invite new team members"),
+  permission("ORGANIZATION", "member", "update", "Edit Members", "Update member details and roles"),
+  permission("ORGANIZATION", "member", "remove", "Remove Members", "Remove members from organization"),
+  permission("ORGANIZATION", "member", "suspend", "Suspend Members", "Suspend or reactivate members"),
+  permission("ORGANIZATION", "member", "restore", "Restore Members", "Restore removed members"),
 
-  // --- Team ---
-  { scope: "ORGANIZATION", resource: "member", action: "read", displayName: "View Members", description: "See the organization's member list" },
-  { scope: "ORGANIZATION", resource: "member", action: "invite", displayName: "Invite Members", description: "Invite new members to the organization" },
-  { scope: "ORGANIZATION", resource: "member", action: "update", displayName: "Edit Members", description: "Change a member's role or suspend them" },
-  { scope: "ORGANIZATION", resource: "member", action: "remove", displayName: "Remove Members", description: "Remove a member from the organization" },
+  // Roles and permissions
+  permission("ORGANIZATION", "role", "read", "View Roles", "View organization roles"),
+  permission("ORGANIZATION", "role", "create", "Create Roles", "Create custom roles"),
+  permission("ORGANIZATION", "role", "update", "Edit Roles", "Edit custom roles"),
+  permission("ORGANIZATION", "role", "manage", "Manage Roles", "Manage roles and permissions"),
+  permission("ORGANIZATION", "role", "delete", "Delete Roles", "Delete custom roles"),
 
-  // --- Roles & permissions ---
-  { scope: "ORGANIZATION", resource: "role", action: "read", displayName: "View Roles", description: "See the organization's roles and their permissions" },
-  { scope: "ORGANIZATION", resource: "role", action: "manage", displayName: "Manage Roles", description: "Create and edit custom roles and assign permissions" },
+  permission("ORGANIZATION", "permission", "read", "View Permissions", "View organization permissions"),
+  permission("ORGANIZATION", "permission", "manage", "Manage Permissions", "Assign permissions to roles"),
 
-  // --- Organization administration ---
-  { scope: "ORGANIZATION", resource: "organization", action: "read", displayName: "View Organization", description: "See the organization's business details" },
-  { scope: "ORGANIZATION", resource: "organization", action: "update", displayName: "Edit Organization", description: "Edit the organization's business details" },
-  { scope: "ORGANIZATION", resource: "kyc", action: "submit", displayName: "Submit Company KYC", description: "Upload and submit the company's verification documents" },
-  { scope: "ORGANIZATION", resource: "kyc", action: "read", displayName: "View Company KYC", description: "See the company's verification status and documents" },
-  { scope: "ORGANIZATION", resource: "report", action: "read", displayName: "View Reports", description: "View the organization's performance reports" },
-  { scope: "ORGANIZATION", resource: "report", action: "export", displayName: "Export Reports", description: "Export the organization's reports" },
+  // Team assignment
+  permission("ORGANIZATION", "lead", "assign", "Assign Leads", "Assign leads to team members"),
+  permission("ORGANIZATION", "siteVisit", "assign", "Assign Site Visits", "Assign visits to team members"),
+  permission("ORGANIZATION", "buyerQuestion", "assign", "Assign Buyer Questions", "Assign questions to team members"),
+
+  // Team activity
+  permission("ORGANIZATION", "team", "read", "View Team Activity", "View team activity"),
+  permission("ORGANIZATION", "team", "manage", "Manage Team", "Manage organization team"),
+
+  // Organization KYC
+  permission("ORGANIZATION", "kyc", "read", "View Company KYC", "View organization KYC"),
+  permission("ORGANIZATION", "kyc", "submit", "Submit Company KYC", "Submit company documents"),
+
+  // Billing
+  permission("ORGANIZATION", "billing", "read", "View Billing", "View organization billing"),
+  permission("ORGANIZATION", "billing", "manage", "Manage Billing", "Manage billing details"),
+  permission("ORGANIZATION", "subscription", "read", "View Subscription", "View organization subscription"),
+  permission("ORGANIZATION", "subscription", "manage", "Manage Subscription", "Manage organization subscription"),
 ];
+
+/* =========================================================
+   INDIVIDUAL PERMISSIONS
+   Same Common Seller Permissions
+   No Team Management
+========================================================= */
 
 const INDIVIDUAL_PERMISSIONS: PermissionDef[] = [
-  { scope: "INDIVIDUAL", resource: "property", action: "create", displayName: "Create Properties", description: "Create new property listings for personal account" },
-  { scope: "INDIVIDUAL", resource: "property", action: "read", displayName: "View Properties", description: "View own property listings" },
-  { scope: "INDIVIDUAL", resource: "property", action: "update", displayName: "Edit Properties", description: "Edit own property listings" },
-  { scope: "INDIVIDUAL", resource: "property", action: "delete", displayName: "Delete Properties", description: "Soft delete own property listings" },
-  { scope: "INDIVIDUAL", resource: "property", action: "publish", displayName: "Publish Properties", description: "Publish own property listings" },
+  ...getSellerPermissions("INDIVIDUAL"),
 
-  { scope: "INDIVIDUAL", resource: "lead", action: "read", displayName: "View Leads", description: "View leads received on own properties" },
-  { scope: "INDIVIDUAL", resource: "lead", action: "update", displayName: "Update Leads", description: "Update status of own property leads" },
-  { scope: "INDIVIDUAL", resource: "lead", action: "delete", displayName: "Delete Leads", description: "Delete leads received on own properties" },
-  { scope: "INDIVIDUAL", resource: "lead", action: "export", displayName: "Export Leads", description: "Export own property leads" },
+  // Individual account
+  permission("INDIVIDUAL", "account", "read", "View Account", "View personal account details"),
+  permission("INDIVIDUAL", "account", "update", "Update Account", "Update personal account details"),
+  permission("INDIVIDUAL", "account", "delete", "Delete Account", "Request account deletion"),
 
-  { scope: "INDIVIDUAL", resource: "siteVisit", action: "read", displayName: "View Site Visits", description: "View site visits for own properties" },
-  { scope: "INDIVIDUAL", resource: "siteVisit", action: "update", displayName: "Update Site Visits", description: "Update own property site visit status" },
-  { scope: "INDIVIDUAL", resource: "siteVisit", action: "delete", displayName: "Delete Site Visits", description: "Delete site visits for own properties" },
+  // Personal KYC
+  permission("INDIVIDUAL", "kyc", "read", "View Personal KYC", "View personal verification status"),
+  permission("INDIVIDUAL", "kyc", "submit", "Submit Personal KYC", "Submit personal KYC documents"),
 
-  { scope: "INDIVIDUAL", resource: "buyerQuestion", action: "read", displayName: "View Buyer Questions", description: "View questions on own property listings" },
-  { scope: "INDIVIDUAL", resource: "buyerQuestion", action: "answer", displayName: "Answer Buyer Questions", description: "Answer questions on own property listings" },
-
-  { scope: "INDIVIDUAL", resource: "sellerProfile", action: "read", displayName: "View Seller Profile", description: "View own seller profile" },
-  { scope: "INDIVIDUAL", resource: "sellerProfile", action: "update", displayName: "Edit Seller Profile", description: "Edit own profile details, photo and cover" },
-
-  { scope: "INDIVIDUAL", resource: "video", action: "upload", displayName: "Upload Videos", description: "Upload videos for own property listings" },
-
-  { scope: "INDIVIDUAL", resource: "kyc", action: "submit", displayName: "Submit KYC", description: "Upload and submit personal seller KYC documents" },
-  { scope: "INDIVIDUAL", resource: "kyc", action: "read", displayName: "View KYC", description: "View own KYC verification status" },
-
-  { scope: "INDIVIDUAL", resource: "report", action: "read", displayName: "View Reports", description: "View personal property and lead reports" },
-  { scope: "INDIVIDUAL", resource: "report", action: "export", displayName: "Export Reports", description: "Export personal property and lead reports" },
+  // Personal billing
+  permission("INDIVIDUAL", "billing", "read", "View Billing", "View personal billing details"),
+  permission("INDIVIDUAL", "billing", "manage", "Manage Billing", "Manage personal billing details"),
+  permission("INDIVIDUAL", "subscription", "read", "View Subscription", "View personal subscription"),
+  permission("INDIVIDUAL", "subscription", "manage", "Manage Subscription", "Manage personal subscription"),
 ];
+
+/* =========================================================
+   MASTER PERMISSION CATALOGUE
+========================================================= */
 
 export const PERMISSIONS: PermissionDef[] = [
   ...PLATFORM_PERMISSIONS,
   ...ORGANIZATION_PERMISSIONS,
   ...INDIVIDUAL_PERMISSIONS,
 ];
+
+/* =========================================================
+   PERMISSION KEYS
+========================================================= */
 
 export const PLATFORM_PERMISSION_KEYS = new Set(
   PLATFORM_PERMISSIONS.map((p) => `${p.resource}:${p.action}`)
@@ -190,29 +349,25 @@ export const INDIVIDUAL_PERMISSION_KEYS = new Set(
   INDIVIDUAL_PERMISSIONS.map((p) => `${p.resource}:${p.action}`)
 );
 
-/**
- * Default permission bundles for the system org role.
- *
- * New organizations receive only the organization Owner role. Further roles
- * are created explicitly by the owner through the organization role-management
- * routes.
- */
+export const OWNER_ONLY_ORG_PERMISSION_KEYS = new Set([
+  "member:invite",
+  "member:update",
+  "member:remove",
+]);
+
+/* =========================================================
+   SYSTEM ROLES
+========================================================= */
+
 export const SYSTEM_ORG_ROLES = {
   "Organization Owner": {
-    description: "Full control of the organization, including roles and billing",
+    description: "Full control of the organization, including properties, team, roles, permissions and billing",
     permissions: ORGANIZATION_PERMISSIONS,
   },
 } as const;
 
 export type SystemOrgRoleName = keyof typeof SYSTEM_ORG_ROLES;
 
-/**
- * Role names are anchors used by role creation, lookup and ownership checks.
- * Ye naam SYSTEM_ORG_ROLES ke key se exactly match hona chahiye —
- * createSystemRoles usi key se role banata hai aur createOrganization is
- * constant se us role ko dhoondta hai. Dono alag ho gaye to org create fail
- * hota hai ("Owner role could not be created").
- */
 export const OWNER_ROLE_NAME = "Organization Owner";
 
 export const INDIVIDUAL_ROLE_NAME = "Individual";

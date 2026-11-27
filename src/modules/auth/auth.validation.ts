@@ -1,8 +1,27 @@
 import { z } from "zod";
 
+const normalizePhone = (value: string) => {
+  const digits = value.replace(/\D/g, "");
+  return digits.length === 12 && digits.startsWith("91")
+    ? digits.slice(2)
+    : digits;
+};
+
+const phoneSchema = z
+  .string()
+  .trim()
+  .transform(normalizePhone)
+  .refine((v) => /^[6-9]\d{9}$/.test(v), "Enter a valid 10-digit mobile number");
+
+const identifierSchema = z
+  .string()
+  .trim()
+  .min(1, "Email or phone is required")
+  .transform((v) => (v.includes("@") ? v.toLowerCase() : normalizePhone(v)));
+
 export const registerSchema = z.object({
   email: z.string().email("Enter a valid email").toLowerCase().trim().optional(),
-  phone: z.string().min(10, "Enter a valid phone number").max(15, "Enter a valid phone number").trim().optional(),
+  phone: phoneSchema.optional(),
   password: z.string().min(6, "Password must be at least 6 characters").max(60).optional(),
   FbTokenId: z.string().optional(),
   firstName: z.string().min(1, "Enter your first name").trim().optional(),
@@ -21,7 +40,7 @@ export const registerSchema = z.object({
 
 export const loginSchema = z.object({
   email: z.string().email("Enter a valid email").toLowerCase().trim().optional(),
-  phone: z.string().min(10).max(15).trim().optional(),
+  phone: phoneSchema.optional(),
   password: z.string().optional(),
   code: z.string().length(6, "OTP must be 6 digits").optional(),
   FbTokenId: z.string().optional(),
@@ -36,7 +55,7 @@ export const loginSchema = z.object({
 );
 
 export const verifyOtpSchema = z.object({
-  identifier: z.string().min(1, "Email or phone is required"),
+  identifier: identifierSchema,
   code: z.string().length(6, "OTP must be 6 digits"),
   purpose: z.enum(["PASSWORD_RESET"]),
 });
@@ -61,7 +80,7 @@ export const resetPasswordSchema = z.object({
 
 export const addContactSchema = z.object({
   email: z.string().email("Enter a valid email").toLowerCase().trim().optional(),
-  phone: z.string().min(10, "Enter a valid phone number").max(15, "Enter a valid phone number").trim().optional(),
+  phone: phoneSchema.optional(),
 }).refine((d) => d.email || d.phone, { message: "Email or phone is required" });
 
 export const updatePasswordSchema = z.object({

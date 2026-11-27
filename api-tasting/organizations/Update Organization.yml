@@ -6,6 +6,9 @@ info:
 http:
   method: PATCH
   url: "{{base_url}}api/v1/organizations/{{organizationId}}"
+  headers:
+    - name: Authorization
+      value: Bearer {{accessToken}}
   body:
     type: json
     data: |-
@@ -14,7 +17,7 @@ http:
           "description":  "Updated company description",
           "contactPhone":  "9876543210"
       }
-  auth: inherit
+  auth: none
 
 settings:
   encodeUrl: true

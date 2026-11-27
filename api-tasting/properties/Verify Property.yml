@@ -6,15 +6,16 @@ info:
 http:
   method: PATCH
   url: "{{base_url}}api/v1/properties/{{propertyId}}/verify"
+  headers:
+    - name: Authorization
+      value: Bearer {{adminAccessToken}}
   body:
     type: json
     data: |-
       {
           "verificationStatus":  "VERIFIED"
       }
-  auth:
-    type: bearer
-    token: "{{adminAccessToken}}"
+  auth: none
 
 settings:
   encodeUrl: true

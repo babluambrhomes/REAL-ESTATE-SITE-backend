@@ -7,9 +7,9 @@ http:
   method: GET
   url: "{{base_url}}api/v1/sellers/me"
   headers:
-    - name: x-organization-id
-      value: "{{organizationId}}"
-  auth: inherit
+    - name: Authorization
+      value: Bearer {{accessToken}}
+  auth: none
 
 settings:
   encodeUrl: true

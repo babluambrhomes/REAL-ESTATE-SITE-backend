@@ -6,16 +6,19 @@ info:
 http:
   method: PATCH
   url: "{{base_url}}api/v1/lead-inquiries/me/{{leadInquiryId}}/reschedule"
+  headers:
+    - name: Authorization
+      value: Bearer {{accessToken}}
   body:
     type: json
     data: |-
       {
-          "visitDate":  "2026-12-20",
-          "startTime":  "2026-12-20T10:00:00.000Z",
-          "endTime":  "2026-12-20T11:00:00.000Z",
+          "visitDate":  "2030-01-15",
+          "startTime":  "2030-01-15T10:00:00.000Z",
+          "endTime":  "2030-01-15T11:00:00.000Z",
           "comment":  "Please reschedule to next week."
       }
-  auth: inherit
+  auth: none
 
 settings:
   encodeUrl: true

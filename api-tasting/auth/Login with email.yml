@@ -13,6 +13,8 @@ http:
           "email":  "rahul.sharma@example.com",
           "password":  "Test@1234"
       }
+  auth: none
+
 
 settings:
   encodeUrl: true

@@ -7,16 +7,18 @@ http:
   method: PATCH
   url: "{{base_url}}api/v1/lead-inquiries/manage/{{leadInquiryId}}/status"
   headers:
+    - name: Authorization
+      value: Bearer {{accessToken}}
     - name: x-organization-id
       value: "{{organizationId}}"
   body:
     type: json
     data: |-
       {
-          "status":  "CONTACTED",
+          "status":  "NEW",
           "comment":  "Called the buyer."
       }
-  auth: inherit
+  auth: none
 
 settings:
   encodeUrl: true

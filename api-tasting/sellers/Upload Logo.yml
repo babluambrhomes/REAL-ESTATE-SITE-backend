@@ -7,15 +7,15 @@ http:
   method: PUT
   url: "{{base_url}}api/v1/sellers/me/logo"
   headers:
-    - name: x-organization-id
-      value: "{{organizationId}}"
+    - name: Authorization
+      value: Bearer {{accessToken}}
   body:
     type: multipart-form
     data:
       - name: logo
         type: file
         value: []
-  auth: inherit
+  auth: none
 
 settings:
   encodeUrl: true

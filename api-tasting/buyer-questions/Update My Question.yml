@@ -6,13 +6,16 @@ info:
 http:
   method: PATCH
   url: "{{base_url}}api/v1/buyer-questions/me/{{questionId}}"
+  headers:
+    - name: Authorization
+      value: Bearer {{accessToken}}
   body:
     type: json
     data: |-
       {
           "question":  "Is the price negotiable for the 3 BHK apartment with sea view?"
       }
-  auth: inherit
+  auth: none
 
 settings:
   encodeUrl: true

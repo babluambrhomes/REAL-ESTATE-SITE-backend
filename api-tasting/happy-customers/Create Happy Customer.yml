@@ -6,7 +6,10 @@ info:
 http:
   method: POST
   url: "{{base_url}}api/v1/happy-customers"
-  auth: inherit
+  headers:
+    - name: Authorization
+      value: Bearer {{adminAccessToken}}
+  auth: none
   body:
     mode: json
     json: |

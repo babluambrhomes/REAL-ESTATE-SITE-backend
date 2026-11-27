@@ -2,73 +2,53 @@ name: Local
 variables:
   - name: base_url
     value: http://localhost:5000/
-    description: ""
   - name: accessToken
-    value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjQyOTA0MTQzLTg0ZGYtNDQzNi04ZTBjLTIwOTZmYjJkYzNkNCIsImlhdCI6MTc5NTU4OTk4NiwiZXhwIjoxNzk2MTk0Nzg2fQ.QW8sMxsuR88Uuq_Fiz-HU5Riuu3f06dq85g7ZbI0ORc
-    description: ""
+    value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6Ijg3Zjg3ZTlkLWMwMDktNGQ1Yi1iNTgwLWJkNmExYjAwY2QwNiIsImlhdCI6MTc5NTY3MzYxNSwiZXhwIjoxNzk2Mjc4NDE1fQ.0dlNMXnQReDe4v7_qQj2sg4WnMgn6umNGm1ckqPoMFk
   - name: adminAccessToken
     value: ""
-    description: ""
   - name: resetToken
     value: ""
-    description: ""
   - name: refreshToken
     value: ""
-    description: ""
   - name: invitationToken
     value: ""
-    description: ""
   - name: roleId
     value: ""
-    description: ""
   - name: userId
     value: ""
-    description: ""
   - name: sellerId
     value: ""
-    description: ""
   - name: sellerSlug
     value: rahul-sharma-properties
-    description: ""
   - name: organizationId
     value: ""
-    description: ""
   - name: categoryId
     value: ""
-    description: ""
   - name: propertyId
     value: ""
-    description: ""
   - name: propertySlug
     value: luxury-3-bhk-apartment-andheri-west
-    description: ""
   - name: variantId
     value: ""
-    description: ""
   - name: videoId
     value: ""
-    description: ""
   - name: faqId
     value: ""
-    description: ""
   - name: questionId
     value: ""
-    description: ""
   - name: blogPostId
     value: ""
-    description: ""
   - name: blogSlug
     value: 5-tips-to-buy-your-first-home-in-mumbai
-    description: ""
   - name: leadInquiryId
     value: ""
-    description: ""
   - name: docId
     value: ""
-    description: ""
   - name: memberId
     value: ""
-    description: ""
   - name: invitationId
     value: ""
-    description: ""
+  - name: happyCustomerId
+    value: ""
+  - name: muxSignature
+    value: ""

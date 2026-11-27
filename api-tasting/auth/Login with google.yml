@@ -10,9 +10,9 @@ http:
     type: json
     data: |-
       {
-        "FbTokenId":""
+        "FbTokenId":"google-login-token"
       }
-  auth: inherit
+  auth: none
 
 runtime:
   variables:

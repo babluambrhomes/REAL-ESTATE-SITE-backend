@@ -14,6 +14,8 @@ http:
           "code":  "123456",
           "purpose":  "PASSWORD_RESET"
       }
+  auth: none
+
 
 settings:
   encodeUrl: true

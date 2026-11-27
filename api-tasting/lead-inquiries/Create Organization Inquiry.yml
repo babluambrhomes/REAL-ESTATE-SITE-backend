@@ -6,6 +6,9 @@ info:
 http:
   method: POST
   url: "{{base_url}}api/v1/lead-inquiries/organization-inquiry"
+  headers:
+    - name: Authorization
+      value: Bearer {{accessToken}}
   body:
     type: json
     data: |-
@@ -19,7 +22,7 @@ http:
           "preferredProject":  "Skyline Residency",
           "termsAccepted":  true
       }
-  auth: inherit
+  auth: none
 
 settings:
   encodeUrl: true
